@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "scenario_id": "malicious_service",
+  "title": "Suspicious Windows service installation",
+  "profile_id": "general_investigation",
+  "target_hostname": "WIN-GT01",
+  "ground_truth": {
+    "expected_alert_count": 1,
+    "expected_rule_ids": [
+      "service_configuration_changed"
+    ],
+    "expected_mitre_techniques": [
+      "T1543.003"
+    ]
+  },
+  "records": [
+    {
+      "record_id": "REC-GT-SERVICE-01",
+      "source_type": "evtxecmd_event",
+      "artifact_type": "event_logs",
+      "timestamp": "2026-07-30T11:00:00.000Z",
+      "summary": "Synthetic service CrowEyeLabSvc installed from C:/Users/Public/CrowEyeLabSvc.exe",
+      "hostname": "WIN-GT01",
+      "user": "labadmin",
+      "event_id": 7045,
+      "raw_reference": "ground_truth/services/System.evtx",
+      "attributes": {
+        "ServiceName": "CrowEyeLabSvc",
+        "ImagePath": "C:/Users/Public/CrowEyeLabSvc.exe",
+        "StartType": "auto"
+      }
+    }
+  ]
+}

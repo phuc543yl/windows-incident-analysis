@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "scenario_id": "rdp_brute_force",
+  "title": "RDP brute force",
+  "profile_id": "general_investigation",
+  "target_hostname": "WIN-GT01",
+  "ground_truth": {
+    "expected_alert_count": 1,
+    "expected_rule_ids": [
+      "failed_logon_burst"
+    ],
+    "expected_mitre_techniques": [
+      "T1110.001"
+    ]
+  },
+  "records": [
+    {
+      "record_id": "REC-GT-RDP-01",
+      "source_type": "evtxecmd_event",
+      "artifact_type": "event_logs",
+      "timestamp": "2026-07-30T08:00:00.000Z",
+      "summary": "Synthetic failed RDP logon 1/5",
+      "hostname": "WIN-GT01",
+      "user": "labuser",
+      "event_id": 4625,
+      "source_ip": "203.0.113.50",
+      "raw_reference": "ground_truth/rdp/Security.evtx",
+      "attributes": {"TargetUserName": "labuser", "IpAddress": "203.0.113.50", "LogonType": 10}
+    },
+    {
+      "record_id": "REC-GT-RDP-02",
+      "source_type": "evtxecmd_event",
+      "artifact_type": "event_logs",
+      "timestamp": "2026-07-30T08:01:00.000Z",
+      "summary": "Synthetic failed RDP logon 2/5",
+      "hostname": "WIN-GT01",
+      "user": "labuser",
+      "event_id": 4625,
+      "source_ip": "203.0.113.50",
+      "raw_reference": "ground_truth/rdp/Security.evtx",
+      "attributes": {"TargetUserName": "labuser", "IpAddress": "203.0.113.50", "LogonType": 10}
+    },
+    {
+      "record_id": "REC-GT-RDP-03",
+      "source_type": "evtxecmd_event",
+      "artifact_type": "event_logs",
+      "timestamp": "2026-07-30T08:02:00.000Z",
+      "summary": "Synthetic failed RDP logon 3/5",
+      "hostname": "WIN-GT01",
+      "user": "labuser",
+      "event_id": 4625,
+      "source_ip": "203.0.113.50",
+      "raw_reference": "ground_truth/rdp/Security.evtx",
+      "attributes": {"TargetUserName": "labuser", "IpAddress": "203.0.113.50", "LogonType": 10}
+    },
+    {
+      "record_id": "REC-GT-RDP-04",
+      "source_type": "evtxecmd_event",
+      "artifact_type": "event_logs",
+      "timestamp": "2026-07-30T08:03:00.000Z",
+      "summary": "Synthetic failed RDP logon 4/5",
+      "hostname": "WIN-GT01",
+      "user": "labuser",
+      "event_id": 4625,
+      "source_ip": "203.0.113.50",
+      "raw_reference": "ground_truth/rdp/Security.evtx",
+      "attributes": {"TargetUserName": "labuser", "IpAddress": "203.0.113.50", "LogonType": 10}
+    },
+    {
+      "record_id": "REC-GT-RDP-05",
+      "source_type": "evtxecmd_event",
+      "artifact_type": "event_logs",
+      "timestamp": "2026-07-30T08:04:00.000Z",
+      "summary": "Synthetic failed RDP logon 5/5",
+      "hostname": "WIN-GT01",
+      "user": "labuser",
+      "event_id": 4625,
+      "source_ip": "203.0.113.50",
+      "raw_reference": "ground_truth/rdp/Security.evtx",
+      "attributes": {"TargetUserName": "labuser", "IpAddress": "203.0.113.50", "LogonType": 10}
+    }
+  ]
+}

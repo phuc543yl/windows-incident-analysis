@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "scenario_id": "endpoint_compromise",
+  "profile_id": "endpoint_compromise",
+  "expected_rule_ids": [
+    "suspicious_powershell",
+    "registry_autorun_change",
+    "scheduled_task_created",
+    "suspicious_file_execution"
+  ],
+  "expected_incident_type": "endpoint_compromise",
+  "confirmation_cia_impacts": [
+    "integrity"
+  ],
+  "records": [
+    {
+      "record_id": "REC-ENDPOINT-POWERSHELL",
+      "source_type": "live_process",
+      "artifact_type": "processes",
+      "timestamp": "2026-07-29T09:00:00.000Z",
+      "summary": "powershell.exe -EncodedCommand SQBFAFgA",
+      "hostname": "WIN-LAB01",
+      "user": "labuser",
+      "process_id": 2400,
+      "parent_process_id": 1200,
+      "process_name": "powershell.exe",
+      "raw_reference": "acquisition/live/processes.json",
+      "attributes": {
+        "CommandLine": "powershell.exe -EncodedCommand SQBFAFgA"
+      }
+    },
+    {
+      "record_id": "REC-ENDPOINT-AUTORUN",
+      "source_type": "recmd_registry",
+      "artifact_type": "registry",
+      "timestamp": "2026-07-29T09:02:00.000Z",
+      "summary": "Registry Run value points to lab payload",
+      "hostname": "WIN-LAB01",
+      "user": "labuser",
+      "file_path": "HKCU/Software/Microsoft/Windows/CurrentVersion/Run/LabUpdater",
+      "raw_reference": "analysis/tool_outputs/recmd/registry.csv",
+      "attributes": {
+        "Data": "C:/Users/Public/lab-payload.exe"
+      }
+    },
+    {
+      "record_id": "REC-ENDPOINT-TASK",
+      "source_type": "scheduled_task",
+      "artifact_type": "scheduled_tasks",
+      "timestamp": "2026-07-29T09:03:00.000Z",
+      "summary": "LabUpdater task executes PowerShell from Users/Public",
+      "hostname": "WIN-LAB01",
+      "user": "SYSTEM",
+      "event_id": 4698,
+      "raw_reference": "acquisition/raw/ScheduledTasks/LabUpdater.xml",
+      "attributes": {
+        "Action": "powershell.exe C:/Users/Public/lab-script.ps1",
+        "TargetUserName": "SYSTEM",
+        "TaskName": "LabUpdater"
+      }
+    },
+    {
+      "record_id": "REC-ENDPOINT-PREFETCH",
+      "source_type": "pecmd_prefetch",
+      "artifact_type": "prefetch",
+      "timestamp": "2026-07-29T09:04:00.000Z",
+      "summary": "LAB-PAYLOAD.EXE executed from Users/Public",
+      "hostname": "WIN-LAB01",
+      "user": "labuser",
+      "process_name": "LAB-PAYLOAD.EXE",
+      "file_path": "C:/Users/Public/lab-payload.exe",
+      "raw_reference": "analysis/tool_outputs/pecmd/prefetch.csv",
+      "attributes": {
+        "RunCount": 1
+      }
+    }
+  ]
+}

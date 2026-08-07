@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "application": {
+    "name": "Windows Incident Analysis Toolkit",
+    "version": "0.1.0",
+    "default_timezone": "UTC"
+  },
+  "paths": {
+    "runtime": "runtime",
+    "cases": "runtime/cases",
+    "agent_buffer": "runtime/agent_buffer",
+    "logs": "runtime/logs",
+    "tools": "tools"
+  },
+  "case": {
+    "id_prefix": "CASE",
+    "sequence_width": 3,
+    "hash_algorithm": "sha256",
+    "verify_hash_before_analysis": true
+  },
+  "collection": {
+    "default_mode": "local",
+    "default_profile": "general_investigation",
+    "timeout_seconds": 120,
+    "max_parallel_collectors": 3,
+    "continue_on_collector_error": true
+  },
+  "processing": {
+    "normalize_timezone": "UTC",
+    "deduplicate_records": true,
+    "preserve_raw_values": true
+  },
+  "reporting": {
+    "default_formats": [
+      "html",
+      "json"
+    ],
+    "include_timeline_csv": true,
+    "include_hash_manifest": true
+  },
+  "logging": {
+    "level": "INFO",
+    "console": true,
+    "file": "runtime/logs/application.log",
+    "max_bytes": 5242880,
+    "backup_count": 5
+  }
+}

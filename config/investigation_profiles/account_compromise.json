@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "profile_id": "account_compromise",
+  "name": "Windows Account Compromise",
+  "description": "Điều tra tài khoản Windows nghi bị chiếm quyền qua RDP brute force.",
+  "hypothesis": "Nhiều đăng nhập thất bại được theo sau bởi RDP thành công và hành động trái phép.",
+  "default_time_window_hours": 12,
+  "live_collectors": [
+    "system",
+    "users",
+    "processes",
+    "network"
+  ],
+  "artifact_collectors": [
+    "event_logs",
+    "firewall_logs"
+  ],
+  "required_artifacts": [
+    "event_logs"
+  ],
+  "optional_artifacts": [
+    "firewall_logs"
+  ],
+  "tools": [
+    "hayabusa",
+    "evtxecmd"
+  ],
+  "detection_rules": [
+    "failed_logon_burst",
+    "successful_logon_after_failures",
+    "suspicious_powershell"
+  ],
+  "correlation_profile": "account_compromise"
+}

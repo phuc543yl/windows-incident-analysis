@@ -1,0 +1,7 @@
+TimeCreated,EventId,Computer,UserName,Provider,Payload,TargetUserName,IpAddress,LogonType
+2026-07-29T08:00:00Z,4625,WIN-LAB01,labuser,Microsoft-Windows-Security-Auditing,RDP logon failed,labuser,203.0.113.10,10
+2026-07-29T08:01:00Z,4625,WIN-LAB01,labuser,Microsoft-Windows-Security-Auditing,RDP logon failed,labuser,203.0.113.10,10
+2026-07-29T08:02:00Z,4625,WIN-LAB01,labuser,Microsoft-Windows-Security-Auditing,RDP logon failed,labuser,203.0.113.10,10
+2026-07-29T08:03:00Z,4625,WIN-LAB01,labuser,Microsoft-Windows-Security-Auditing,RDP logon failed,labuser,203.0.113.10,10
+2026-07-29T08:04:00Z,4625,WIN-LAB01,labuser,Microsoft-Windows-Security-Auditing,RDP logon failed,labuser,203.0.113.10,10
+2026-07-29T08:05:00Z,4624,WIN-LAB01,labuser,Microsoft-Windows-Security-Auditing,RDP logon succeeded,labuser,203.0.113.10,10

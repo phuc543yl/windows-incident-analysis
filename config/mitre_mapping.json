@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "framework": "MITRE ATT&CK Enterprise",
+  "mappings": {
+    "failed_logon_burst": [
+      {
+        "technique_id": "T1110.001",
+        "technique_name": "Password Guessing",
+        "tactics": [
+          "Credential Access"
+        ]
+      }
+    ],
+    "successful_logon_after_failures": [
+      {
+        "technique_id": "T1021.001",
+        "technique_name": "Remote Desktop Protocol",
+        "tactics": [
+          "Lateral Movement"
+        ]
+      },
+      {
+        "technique_id": "T1078",
+        "technique_name": "Valid Accounts",
+        "tactics": [
+          "Defense Evasion",
+          "Persistence",
+          "Privilege Escalation",
+          "Initial Access"
+        ]
+      }
+    ],
+    "suspicious_powershell": [
+      {
+        "technique_id": "T1059.001",
+        "technique_name": "PowerShell",
+        "tactics": [
+          "Execution"
+        ]
+      }
+    ],
+    "registry_autorun_change": [
+      {
+        "technique_id": "T1547.001",
+        "technique_name": "Registry Run Keys / Startup Folder",
+        "tactics": [
+          "Persistence",
+          "Privilege Escalation"
+        ]
+      }
+    ],
+    "scheduled_task_created": [
+      {
+        "technique_id": "T1053.005",
+        "technique_name": "Scheduled Task",
+        "tactics": [
+          "Execution",
+          "Persistence",
+          "Privilege Escalation"
+        ]
+      }
+    ],
+    "suspicious_file_execution": [
+      {
+        "technique_id": "T1204.002",
+        "technique_name": "Malicious File",
+        "tactics": [
+          "Execution"
+        ]
+      }
+    ],
+    "security_log_cleared": [
+      {
+        "technique_id": "T1070.001",
+        "technique_name": "Clear Windows Event Logs",
+        "tactics": [
+          "Defense Evasion"
+        ]
+      }
+    ],
+    "service_stopped": [
+      {
+        "technique_id": "T1489",
+        "technique_name": "Service Stop",
+        "tactics": [
+          "Impact"
+        ]
+      }
+    ],
+    "service_configuration_changed": [
+      {
+        "technique_id": "T1543.003",
+        "technique_name": "Windows Service",
+        "tactics": [
+          "Persistence",
+          "Privilege Escalation"
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "scenario_id": "account_compromise",
+  "profile_id": "account_compromise",
+  "expected_rule_ids": [
+    "failed_logon_burst",
+    "successful_logon_after_failures"
+  ],
+  "expected_incident_type": "account_compromise",
+  "confirmation_cia_impacts": [
+    "confidentiality",
+    "integrity"
+  ],
+  "records": [
+    {
+      "record_id": "REC-ACCOUNT-FAIL-01",
+      "source_type": "evtxecmd_event",
+      "artifact_type": "event_logs",
+      "timestamp": "2026-07-29T08:00:00.000Z",
+      "summary": "RDP logon failed for labuser",
+      "hostname": "WIN-LAB01",
+      "user": "labuser",
+      "event_id": 4625,
+      "source_ip": "203.0.113.10",
+      "raw_reference": "analysis/tool_outputs/evtxecmd/account.csv",
+      "attributes": {
+        "TargetUserName": "labuser",
+        "IpAddress": "203.0.113.10",
+        "LogonType": 10
+      }
+    },
+    {
+      "record_id": "REC-ACCOUNT-FAIL-02",
+      "source_type": "evtxecmd_event",
+      "artifact_type": "event_logs",
+      "timestamp": "2026-07-29T08:01:00.000Z",
+      "summary": "RDP logon failed for labuser",
+      "hostname": "WIN-LAB01",
+      "user": "labuser",
+      "event_id": 4625,
+      "source_ip": "203.0.113.10",
+      "raw_reference": "analysis/tool_outputs/evtxecmd/account.csv",
+      "attributes": {
+        "TargetUserName": "labuser",
+        "IpAddress": "203.0.113.10",
+        "LogonType": 10
+      }
+    },
+    {
+      "record_id": "REC-ACCOUNT-FAIL-03",
+      "source_type": "evtxecmd_event",
+      "artifact_type": "event_logs",
+      "timestamp": "2026-07-29T08:02:00.000Z",
+      "summary": "RDP logon failed for labuser",
+      "hostname": "WIN-LAB01",
+      "user": "labuser",
+      "event_id": 4625,
+      "source_ip": "203.0.113.10",
+      "raw_reference": "analysis/tool_outputs/evtxecmd/account.csv",
+      "attributes": {
+        "TargetUserName": "labuser",
+        "IpAddress": "203.0.113.10",
+        "LogonType": 10
+      }
+    },
+    {
+      "record_id": "REC-ACCOUNT-FAIL-04",
+      "source_type": "evtxecmd_event",
+      "artifact_type": "event_logs",
+      "timestamp": "2026-07-29T08:03:00.000Z",
+      "summary": "RDP logon failed for labuser",
+      "hostname": "WIN-LAB01",
+      "user": "labuser",
+      "event_id": 4625,
+      "source_ip": "203.0.113.10",
+      "raw_reference": "analysis/tool_outputs/evtxecmd/account.csv",
+      "attributes": {
+        "TargetUserName": "labuser",
+        "IpAddress": "203.0.113.10",
+        "LogonType": 10
+      }
+    },
+    {
+      "record_id": "REC-ACCOUNT-FAIL-05",
+      "source_type": "evtxecmd_event",
+      "artifact_type": "event_logs",
+      "timestamp": "2026-07-29T08:04:00.000Z",
+      "summary": "RDP logon failed for labuser",
+      "hostname": "WIN-LAB01",
+      "user": "labuser",
+      "event_id": 4625,
+      "source_ip": "203.0.113.10",
+      "raw_reference": "analysis/tool_outputs/evtxecmd/account.csv",
+      "attributes": {
+        "TargetUserName": "labuser",
+        "IpAddress": "203.0.113.10",
+        "LogonType": 10
+      }
+    },
+    {
+      "record_id": "REC-ACCOUNT-SUCCESS-01",
+      "source_type": "evtxecmd_event",
+      "artifact_type": "event_logs",
+      "timestamp": "2026-07-29T08:05:00.000Z",
+      "summary": "RDP logon succeeded for labuser after failures",
+      "hostname": "WIN-LAB01",
+      "user": "labuser",
+      "event_id": 4624,
+      "source_ip": "203.0.113.10",
+      "raw_reference": "analysis/tool_outputs/evtxecmd/account.csv",
+      "attributes": {
+        "TargetUserName": "labuser",
+        "IpAddress": "203.0.113.10",
+        "LogonType": 10
+      }
+    }
+  ]
+}

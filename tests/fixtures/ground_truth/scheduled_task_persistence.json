@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "scenario_id": "scheduled_task_persistence",
+  "title": "Scheduled Task persistence",
+  "profile_id": "general_investigation",
+  "target_hostname": "WIN-GT01",
+  "ground_truth": {
+    "expected_alert_count": 1,
+    "expected_rule_ids": [
+      "scheduled_task_created"
+    ],
+    "expected_mitre_techniques": [
+      "T1053.005"
+    ]
+  },
+  "records": [
+    {
+      "record_id": "REC-GT-TASK-01",
+      "source_type": "scheduled_task",
+      "artifact_type": "scheduled_tasks",
+      "timestamp": "2026-07-30T10:00:00.000Z",
+      "summary": "CrowEyeLabTask created with a PowerShell action",
+      "hostname": "WIN-GT01",
+      "user": "labuser",
+      "event_id": 4698,
+      "raw_reference": "ground_truth/scheduled_tasks/CrowEyeLabTask.xml",
+      "attributes": {
+        "TaskName": "CrowEyeLabTask",
+        "TargetUserName": "labuser",
+        "Action": "powershell.exe -NoProfile -Command Get-Date"
+      }
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "scenario_id": "service_disruption",
+  "profile_id": "service_disruption",
+  "expected_rule_ids": [
+    "service_stopped",
+    "service_configuration_changed"
+  ],
+  "expected_incident_type": "service_disruption",
+  "confirmation_cia_impacts": [
+    "availability"
+  ],
+  "records": [
+    {
+      "record_id": "REC-SERVICE-STOPPED",
+      "source_type": "evtxecmd_event",
+      "artifact_type": "event_logs",
+      "timestamp": "2026-07-29T11:00:00.000Z",
+      "summary": "CrowEyeLabService entered the stopped state",
+      "hostname": "WIN-LAB01",
+      "user": "labadmin",
+      "event_id": 7036,
+      "raw_reference": "analysis/tool_outputs/evtxecmd/service.csv",
+      "attributes": {
+        "ServiceName": "CrowEyeLabService",
+        "State": "stopped"
+      }
+    },
+    {
+      "record_id": "REC-SERVICE-DISABLED",
+      "source_type": "evtxecmd_event",
+      "artifact_type": "event_logs",
+      "timestamp": "2026-07-29T11:01:00.000Z",
+      "summary": "CrowEyeLabService startup type changed to disabled",
+      "hostname": "WIN-LAB01",
+      "user": "labadmin",
+      "event_id": 7040,
+      "raw_reference": "analysis/tool_outputs/evtxecmd/service.csv",
+      "attributes": {
+        "ServiceName": "CrowEyeLabService",
+        "StartType": "disabled"
+      }
+    }
+  ]
+}

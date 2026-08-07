@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "profile_id": "service_disruption",
+  "name": "Windows Service Disruption",
+  "description": "Điều tra dịch vụ Windows bị dừng, disabled hoặc thay đổi trái phép.",
+  "hypothesis": "Một tài khoản hoặc tiến trình không được phép làm gián đoạn dịch vụ thử nghiệm.",
+  "default_time_window_hours": 12,
+  "live_collectors": [
+    "system",
+    "users",
+    "processes",
+    "services"
+  ],
+  "artifact_collectors": [
+    "event_logs",
+    "registry",
+    "prefetch"
+  ],
+  "required_artifacts": [
+    "event_logs",
+    "registry"
+  ],
+  "optional_artifacts": [
+    "prefetch"
+  ],
+  "tools": [
+    "hayabusa",
+    "evtxecmd",
+    "recmd",
+    "pecmd"
+  ],
+  "detection_rules": [
+    "service_stopped",
+    "service_configuration_changed"
+  ],
+  "correlation_profile": "service_disruption"
+}

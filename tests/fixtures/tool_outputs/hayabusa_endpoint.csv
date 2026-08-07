@@ -1,0 +1,3 @@
+Timestamp,Computer,RuleTitle,EventID,User,ProcessID,ProcessName,SrcIP,DstIP,FilePath,Details
+2026-07-29T09:00:00Z,WIN-LAB01,Suspicious PowerShell EncodedCommand,4688,labuser,2400,powershell.exe,,,C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe,powershell.exe -EncodedCommand SQBFAFgA
+2026-07-29T10:00:00Z,WIN-LAB01,Security Log Cleared,1102,labadmin,,,,,,The Security audit log was cleared

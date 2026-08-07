@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "profile_id": "log_tampering",
+  "name": "Windows Event Log Tampering",
+  "description": "Điều tra hành vi xóa Windows Event Log nhằm che giấu dấu vết.",
+  "hypothesis": "Security hoặc System Log bị xóa sau hoạt động truy cập hay thực thi đáng ngờ.",
+  "default_time_window_hours": 12,
+  "live_collectors": [
+    "system",
+    "users",
+    "processes"
+  ],
+  "artifact_collectors": [
+    "event_logs",
+    "prefetch"
+  ],
+  "required_artifacts": [
+    "event_logs"
+  ],
+  "optional_artifacts": [
+    "prefetch"
+  ],
+  "tools": [
+    "hayabusa",
+    "evtxecmd",
+    "pecmd"
+  ],
+  "detection_rules": [
+    "security_log_cleared",
+    "suspicious_powershell"
+  ],
+  "correlation_profile": "log_tampering"
+}

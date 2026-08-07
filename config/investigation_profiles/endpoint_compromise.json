@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "profile_id": "endpoint_compromise",
+  "name": "Endpoint Compromise and Persistence",
+  "description": "Điều tra thực thi PowerShell, tệp lạ và cơ chế duy trì truy cập.",
+  "hypothesis": "Mã được thực thi trái phép rồi tạo Registry Run Key hoặc Scheduled Task.",
+  "default_time_window_hours": 24,
+  "live_collectors": [
+    "system",
+    "users",
+    "processes",
+    "network",
+    "services",
+    "startup"
+  ],
+  "artifact_collectors": [
+    "event_logs",
+    "prefetch",
+    "amcache",
+    "registry",
+    "mft",
+    "scheduled_tasks",
+    "files"
+  ],
+  "required_artifacts": [
+    "event_logs",
+    "prefetch",
+    "registry"
+  ],
+  "optional_artifacts": [
+    "amcache",
+    "mft",
+    "scheduled_tasks",
+    "files"
+  ],
+  "tools": [
+    "hayabusa",
+    "evtxecmd",
+    "pecmd",
+    "amcacheparser",
+    "mftecmd",
+    "recmd"
+  ],
+  "detection_rules": [
+    "suspicious_powershell",
+    "registry_autorun_change",
+    "scheduled_task_created",
+    "suspicious_file_execution"
+  ],
+  "correlation_profile": "endpoint_compromise"
+}

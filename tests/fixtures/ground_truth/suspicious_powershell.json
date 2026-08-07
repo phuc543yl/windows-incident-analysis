@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "scenario_id": "suspicious_powershell",
+  "title": "Suspicious encoded PowerShell",
+  "profile_id": "general_investigation",
+  "target_hostname": "WIN-GT01",
+  "ground_truth": {
+    "expected_alert_count": 1,
+    "expected_rule_ids": [
+      "suspicious_powershell"
+    ],
+    "expected_mitre_techniques": [
+      "T1059.001"
+    ]
+  },
+  "records": [
+    {
+      "record_id": "REC-GT-POWERSHELL-01",
+      "source_type": "live_process",
+      "artifact_type": "processes",
+      "timestamp": "2026-07-30T09:00:00.000Z",
+      "summary": "powershell.exe -EncodedCommand RwBlAHQALQBEAGEAdABlAA==",
+      "hostname": "WIN-GT01",
+      "user": "labuser",
+      "process_id": 4242,
+      "parent_process_id": 2121,
+      "process_name": "powershell.exe",
+      "raw_reference": "ground_truth/powershell/processes.json",
+      "attributes": {
+        "CommandLine": "powershell.exe -NoProfile -EncodedCommand RwBlAHQALQBEAGEAdABlAA=="
+      }
+    }
+  ]
+}

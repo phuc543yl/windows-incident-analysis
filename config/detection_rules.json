@@ -1,0 +1,269 @@
+{
+  "schema_version": 1,
+  "defaults": {
+    "enabled": true,
+    "severity": "medium",
+    "risk_score": 50,
+    "window_minutes": 10
+  },
+  "rules": [
+    {
+      "id": "failed_logon_burst",
+      "name": "RDP Failed Logon Burst",
+      "enabled": true,
+      "description": "Nhiều lần đăng nhập Windows thất bại cho cùng tài khoản hoặc địa chỉ nguồn.",
+      "source_types": [
+        "event_log"
+      ],
+      "severity": "high",
+      "risk_score": 70,
+      "mitre_techniques": [
+        "T1110.001"
+      ],
+      "parameters": {
+        "event_ids": [
+          4625
+        ],
+        "threshold": 5,
+        "window_minutes": 10,
+        "group_by": [
+          "target_user",
+          "source_ip"
+        ]
+      }
+    },
+    {
+      "id": "successful_logon_after_failures",
+      "name": "Successful RDP Logon After Failures",
+      "enabled": true,
+      "description": "Đăng nhập RDP thành công xuất hiện sau chuỗi đăng nhập thất bại liên quan.",
+      "source_types": [
+        "event_log"
+      ],
+      "severity": "high",
+      "risk_score": 85,
+      "mitre_techniques": [
+        "T1021.001",
+        "T1078"
+      ],
+      "parameters": {
+        "failure_event_id": 4625,
+        "success_event_id": 4624,
+        "required_logon_type": 10,
+        "minimum_failures": 5,
+        "window_minutes": 15,
+        "match_fields": [
+          "target_user",
+          "source_ip"
+        ]
+      }
+    },
+    {
+      "id": "suspicious_powershell",
+      "name": "Suspicious PowerShell Command",
+      "enabled": true,
+      "description": "PowerShell sử dụng tham số mã hóa, bypass hoặc tải nội dung từ mạng.",
+      "source_types": [
+        "event_log",
+        "process"
+      ],
+      "severity": "high",
+      "risk_score": 80,
+      "mitre_techniques": [
+        "T1059.001"
+      ],
+      "parameters": {
+        "event_ids": [
+          1,
+          4688,
+          4104
+        ],
+        "process_names": [
+          "powershell.exe",
+          "pwsh.exe"
+        ],
+        "case_insensitive_indicators": [
+          "-enc",
+          "-encodedcommand",
+          "-executionpolicy bypass",
+          "invoke-expression",
+          "downloadstring",
+          "invoke-webrequest",
+          "start-bitstransfer"
+        ],
+        "minimum_indicator_hits": 1
+      }
+    },
+    {
+      "id": "registry_autorun_change",
+      "name": "Registry Autorun Change",
+      "enabled": true,
+      "description": "Registry Run hoặc RunOnce được tạo hay thay đổi.",
+      "source_types": [
+        "event_log",
+        "registry"
+      ],
+      "severity": "high",
+      "risk_score": 75,
+      "mitre_techniques": [
+        "T1547.001"
+      ],
+      "parameters": {
+        "event_ids": [
+          13,
+          4657
+        ],
+        "key_indicators": [
+          "/software/microsoft/windows/currentversion/run",
+          "/software/microsoft/windows/currentversion/runonce"
+        ],
+        "suspicious_path_indicators": [
+          "/temp/",
+          "/appdata/local/temp/",
+          "/users/public/"
+        ]
+      }
+    },
+    {
+      "id": "scheduled_task_created",
+      "name": "Suspicious Scheduled Task Created",
+      "enabled": true,
+      "description": "Scheduled Task mới có action hoặc tài khoản chạy cần điều tra.",
+      "source_types": [
+        "event_log",
+        "scheduled_task"
+      ],
+      "severity": "high",
+      "risk_score": 75,
+      "mitre_techniques": [
+        "T1053.005"
+      ],
+      "parameters": {
+        "event_ids": [
+          106,
+          4698
+        ],
+        "suspicious_action_indicators": [
+          "powershell",
+          "cmd.exe",
+          "wscript",
+          "cscript",
+          "/temp/",
+          "/appdata/"
+        ],
+        "review_system_tasks": false
+      }
+    },
+    {
+      "id": "suspicious_file_execution",
+      "name": "Suspicious File Execution",
+      "enabled": true,
+      "description": "Chương trình thực thi từ thư mục thường bị lạm dụng hoặc có tên giả mạo.",
+      "source_types": [
+        "event_log",
+        "process",
+        "prefetch",
+        "amcache"
+      ],
+      "severity": "medium",
+      "risk_score": 65,
+      "mitre_techniques": [
+        "T1204.002"
+      ],
+      "parameters": {
+        "suspicious_path_indicators": [
+          "/temp/",
+          "/appdata/local/temp/",
+          "/users/public/",
+          "/recycle.bin/"
+        ],
+        "trusted_system_directories": [
+          "/windows/system32/",
+          "/windows/syswow64/",
+          "/program files/"
+        ],
+        "require_execution_evidence": true
+      }
+    },
+    {
+      "id": "security_log_cleared",
+      "name": "Windows Event Log Cleared",
+      "enabled": true,
+      "description": "Security hoặc System Event Log bị xóa.",
+      "source_types": [
+        "event_log",
+        "process"
+      ],
+      "severity": "critical",
+      "risk_score": 90,
+      "mitre_techniques": [
+        "T1070.001"
+      ],
+      "parameters": {
+        "event_ids": [
+          104,
+          1102
+        ],
+        "command_indicators": [
+          "wevtutil cl",
+          "clear-eventlog"
+        ],
+        "require_actor_review": true
+      }
+    },
+    {
+      "id": "service_stopped",
+      "name": "Windows Service Stopped",
+      "enabled": true,
+      "description": "Dịch vụ bị dừng trong bối cảnh không được phép và gây mất chức năng.",
+      "source_types": [
+        "event_log",
+        "service"
+      ],
+      "severity": "high",
+      "risk_score": 75,
+      "mitre_techniques": [
+        "T1489"
+      ],
+      "parameters": {
+        "event_ids": [
+          7036
+        ],
+        "stopped_state_values": [
+          "stopped"
+        ],
+        "require_unauthorized_context": true,
+        "minimum_downtime_seconds": 60,
+        "service_allowlist": []
+      }
+    },
+    {
+      "id": "service_configuration_changed",
+      "name": "Windows Service Configuration Changed",
+      "enabled": true,
+      "description": "Startup Type của dịch vụ bị đổi hoặc một dịch vụ mới được cài.",
+      "source_types": [
+        "event_log",
+        "service",
+        "registry"
+      ],
+      "severity": "high",
+      "risk_score": 80,
+      "mitre_techniques": [
+        "T1543.003"
+      ],
+      "parameters": {
+        "event_ids": [
+          7040,
+          7045
+        ],
+        "suspicious_binary_path_indicators": [
+          "/temp/",
+          "/appdata/",
+          "/users/public/"
+        ],
+        "review_start_type_changes": true
+      }
+    }
+  ]
+}

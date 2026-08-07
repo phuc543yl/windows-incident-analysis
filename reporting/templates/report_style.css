@@ -1,0 +1,94 @@
+:root {
+  color-scheme: light;
+  --ink: #152534;
+  --muted: #5c6d7a;
+  --navy: #17324d;
+  --blue: #2376a6;
+  --line: #cbd8e2;
+  --surface: #f4f7fa;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: #eaf0f4;
+  color: var(--ink);
+  font: 14px/1.55 "Segoe UI", Arial, sans-serif;
+}
+
+.report {
+  width: min(1100px, calc(100% - 32px));
+  margin: 24px auto;
+  padding: 44px;
+  background: white;
+  box-shadow: 0 8px 28px rgba(23, 50, 77, .12);
+}
+
+header {
+  padding-bottom: 24px;
+  border-bottom: 4px solid var(--blue);
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .12em;
+}
+
+h1, h2, h3 { color: var(--navy); }
+h1 { margin: 0; font-size: 30px; line-height: 1.2; }
+h2 { margin-top: 32px; font-size: 20px; }
+h3 { margin-bottom: 6px; font-size: 15px; }
+.subtitle { margin: 10px 0 0; color: var(--muted); font-size: 17px; }
+.generated, .identifier, .empty { color: var(--muted); }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th, td {
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+thead th, .key-value th {
+  background: var(--surface);
+  color: var(--navy);
+}
+
+.key-value th { width: 210px; }
+.table-scroll { overflow-x: auto; }
+
+.card {
+  margin: 12px 0;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--blue);
+  border-radius: 4px;
+}
+
+.card h3, .card p { margin-top: 0; }
+.card dl { display: grid; grid-template-columns: 160px 1fr; gap: 5px 12px; }
+.card dt { color: var(--muted); font-weight: 600; }
+.card dd { margin: 0; overflow-wrap: anywhere; }
+
+footer {
+  margin-top: 38px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+@media print {
+  body { background: white; }
+  .report { width: auto; margin: 0; padding: 0; box-shadow: none; }
+  section, .card { break-inside: avoid; }
+}

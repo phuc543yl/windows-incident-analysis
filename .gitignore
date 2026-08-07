@@ -1,0 +1,52 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.idea/
+.vscode/
+
+# Environment / secrets
+.env
+.env.*
+*.key
+*.pem
+secrets/
+config/local.*
+
+# Crow-Eye runtime data
+runtime/
+logs/
+cases/
+case_data/
+agent_buffer/
+
+# Collected forensic evidence
+acquisition/
+normalized/
+analysis/tool_outputs/
+
+# Generated bundles / reports
+*.zip
+
+# External DFIR binaries
+
+tools/**/*.exe
+tools/**/*.dll
+tools/**/*.pdb
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+# Third-party DFIR tools - install locally
+tools/*
+
+# Nếu sau này tạo README hướng dẫn cài tool thì vẫn cho phép commit
+!tools/README.md
+!tools/.gitkeep

@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "profile_id": "general_investigation",
+  "name": "General Windows Investigation",
+  "description": "Thu thập nền tảng khi chưa xác định rõ loại sự cố.",
+  "hypothesis": "Máy Windows có hành vi bất thường cần thu thập dữ liệu ban đầu để sàng lọc.",
+  "default_time_window_hours": 24,
+  "live_collectors": [
+    "system",
+    "users",
+    "processes",
+    "network",
+    "services",
+    "startup"
+  ],
+  "artifact_collectors": [
+    "event_logs",
+    "prefetch",
+    "amcache",
+    "registry",
+    "scheduled_tasks"
+  ],
+  "required_artifacts": [
+    "event_logs"
+  ],
+  "optional_artifacts": [
+    "prefetch",
+    "amcache",
+    "registry",
+    "scheduled_tasks"
+  ],
+  "tools": [
+    "hayabusa",
+    "evtxecmd",
+    "pecmd",
+    "amcacheparser",
+    "recmd"
+  ],
+  "detection_rules": [
+    "failed_logon_burst",
+    "successful_logon_after_failures",
+    "suspicious_powershell",
+    "registry_autorun_change",
+    "scheduled_task_created",
+    "suspicious_file_execution",
+    "security_log_cleared",
+    "service_stopped",
+    "service_configuration_changed"
+  ],
+  "correlation_profile": "general_investigation"
+}

@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>$report_title</title>
+  <style>
+$styles
+  </style>
+</head>
+<body>
+  <main class="report">
+    <header>
+      <p class="eyebrow">CROW-EYE / WINDOWS INCIDENT ANALYSIS</p>
+      <h1>$report_title</h1>
+      <p class="subtitle">$case_title</p>
+      <p class="generated">Thời điểm xuất: $generated_at</p>
+    </header>
+
+    <section>
+      <h2>1. Thông tin vụ việc</h2>
+      $case_summary
+    </section>
+    <section>
+      <h2>2. Máy mục tiêu</h2>
+      $target_summary
+    </section>
+    <section>
+      <h2>3. Phạm vi điều tra</h2>
+      $scope_summary
+    </section>
+    <section>
+      <h2>4. Tổng quan kết quả</h2>
+      $counts
+    </section>
+    <section>
+      <h2>5. Bằng chứng và SHA-256</h2>
+      $evidence_table
+    </section>
+    <section>
+      <h2>6. Thu thập</h2>
+      $collection_table
+    </section>
+    <section>
+      <h2>7. Công cụ DFIR</h2>
+      $tool_table
+    </section>
+    <section>
+      <h2>8. Finding</h2>
+      $findings
+    </section>
+    <section>
+      <h2>9. Alert</h2>
+      $alerts
+    </section>
+    <section>
+      <h2>10. Incident và tác động CIA</h2>
+      $incidents
+    </section>
+    <section>
+      <h2>11. Timeline</h2>
+      $timeline_table
+    </section>
+    <section>
+      <h2>12. Đánh giá của chuyên viên</h2>
+      $analyst_section
+    </section>
+    <footer>
+      Báo cáo được sinh từ dữ liệu của Case; kết luận cuối cùng thuộc về
+      chuyên viên điều tra.
+    </footer>
+  </main>
+</body>
+</html>

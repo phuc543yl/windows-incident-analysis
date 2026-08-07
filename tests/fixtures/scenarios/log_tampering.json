@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "scenario_id": "log_tampering",
+  "profile_id": "log_tampering",
+  "expected_rule_ids": [
+    "security_log_cleared"
+  ],
+  "expected_incident_type": "log_tampering",
+  "confirmation_cia_impacts": [
+    "integrity"
+  ],
+  "records": [
+    {
+      "record_id": "REC-LOG-CLEARED",
+      "source_type": "evtxecmd_event",
+      "artifact_type": "event_logs",
+      "timestamp": "2026-07-29T10:00:00.000Z",
+      "summary": "The Security audit log was cleared in the lab",
+      "hostname": "WIN-LAB01",
+      "user": "labadmin",
+      "event_id": 1102,
+      "raw_reference": "analysis/tool_outputs/evtxecmd/log_tampering.csv",
+      "attributes": {
+        "SubjectUserName": "labadmin",
+        "Channel": "Security"
+      }
+    }
+  ]
+}

@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "tools": [
+    {
+      "id": "hayabusa",
+      "name": "Hayabusa",
+      "enabled": true,
+      "required_for_mvp": true,
+      "adapter": "hayabusa",
+      "executable": "tools/Hayabusa/hayabusa.exe",
+      "supported_artifacts": [
+        "event_logs"
+      ],
+      "output_format": "csv",
+      "timeout_seconds": 300
+    },
+    {
+      "id": "evtxecmd",
+      "name": "EvtxECmd",
+      "enabled": true,
+      "required_for_mvp": true,
+      "adapter": "evtxecmd",
+      "executable": "tools/EZTools/net9/EvtxeCmd/EvtxECmd.exe",
+      "supported_artifacts": [
+        "event_logs"
+      ],
+      "output_format": "csv",
+      "timeout_seconds": 300
+    },
+    {
+      "id": "pecmd",
+      "name": "PECmd",
+      "enabled": true,
+      "required_for_mvp": false,
+      "adapter": "pecmd",
+      "executable": "tools/EZTools/net9/PECmd.exe",
+      "supported_artifacts": [
+        "prefetch"
+      ],
+      "output_format": "csv",
+      "timeout_seconds": 180
+    },
+    {
+      "id": "amcacheparser",
+      "name": "AmcacheParser",
+      "enabled": true,
+      "required_for_mvp": false,
+      "adapter": "amcacheparser",
+      "executable": "tools/EZTools/net9/AmcacheParser.exe",
+      "supported_artifacts": [
+        "amcache"
+      ],
+      "output_format": "csv",
+      "timeout_seconds": 180
+    },
+    {
+      "id": "mftecmd",
+      "name": "MFTECmd",
+      "enabled": true,
+      "required_for_mvp": false,
+      "adapter": "mftecmd",
+      "executable": "tools/EZTools/net9/MFTECmd.exe",
+      "supported_artifacts": [
+        "mft"
+      ],
+      "output_format": "csv",
+      "timeout_seconds": 300
+    },
+    {
+      "id": "recmd",
+      "name": "RECmd",
+      "enabled": true,
+      "required_for_mvp": false,
+      "adapter": "recmd",
+      "executable": "tools/EZTools/net9/RECmd/RECmd.exe",
+      "supported_artifacts": [
+        "registry"
+      ],
+      "output_format": "csv",
+      "timeout_seconds": 300
+    }
+  ]
+}

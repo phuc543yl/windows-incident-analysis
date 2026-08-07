@@ -1,0 +1,152 @@
+"""Shared field extraction and deterministic identifiers for analysis."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import re
+from collections.abc import Iterable
+from typing import Any
+
+from common.enums import ArtifactType
+from models.normalized_record import NormalizedRecord
+
+_KEY_PATTERN = re.compile(r"[^a-z0-9]+")
+
+
+def normalized_key(value: Any) -> str:
+    return _KEY_PATTERN.sub("", str(value).strip().casefold())
+
+
+def attribute(
+    record: NormalizedRecord,
+    *names: str,
+    default: Any = "",
+) -> Any:
+    values = {
+        normalized_key(key): value
+        for key, value in record.attributes.items()
+    }
+    for name in names:
+        value = values.get(normalized_key(name))
+        if value not in (None, ""):
+            return value
+    return default
+
+
+def text_blob(record: NormalizedRecord) -> str:
+    values = (
+        record.summary,
+        record.user,
+        record.process_name,
+        record.file_path,
+        record.source_ip,
+        record.destination_ip,
+        json.dumps(
+            record.attributes,
+            ensure_ascii=False,
+            sort_keys=True,
+            default=str,
+        ),
+    )
+    return " ".join(str(value) for value in values).casefold().replace(
+        "\\",
+        "/",
+    )
+
+
+def conceptual_source(record: NormalizedRecord) -> str:
+    mapping = {
+        ArtifactType.EVENT_LOGS: "event_log",
+        ArtifactType.PROCESSES: "process",
+        ArtifactType.NETWORK: "network",
+        ArtifactType.REGISTRY: "registry",
+        ArtifactType.SCHEDULED_TASKS: "scheduled_task",
+        ArtifactType.SERVICES: "service",
+        ArtifactType.PREFETCH: "prefetch",
+        ArtifactType.AMCACHE: "amcache",
+        ArtifactType.MFT: "mft",
+        ArtifactType.FILES: "file",
+    }
+    return mapping.get(record.artifact_type, record.source_type)
+
+
+def source_allowed(
+    record: NormalizedRecord,
+    allowed: Iterable[str],
+) -> bool:
+    normalized = {
+        str(value).strip().casefold()
+        for value in allowed
+    }
+    return (
+        conceptual_source(record).casefold() in normalized
+        or record.source_type.casefold() in normalized
+    )
+
+
+def target_user(record: NormalizedRecord) -> str:
+    return str(
+        attribute(
+            record,
+            "target_user",
+            "target_user_name",
+            "targetusername",
+            "subject_user_name",
+            default=record.user,
+        )
+    ).strip()
+
+
+def source_ip(record: NormalizedRecord) -> str:
+    return str(
+        attribute(
+            record,
+            "source_ip",
+            "src_ip",
+            "ip_address",
+            "ipaddress",
+            default=record.source_ip,
+        )
+    ).strip()
+
+
+def service_name(record: NormalizedRecord) -> str:
+    return str(
+        attribute(
+            record,
+            "service_name",
+            "servicename",
+            "param1",
+            default="",
+        )
+    ).strip()
+
+
+def integer_attribute(
+    record: NormalizedRecord,
+    *names: str,
+) -> int | None:
+    value = attribute(record, *names, default=None)
+    if value in (None, ""):
+        return None
+    if isinstance(value, bool):
+        return None
+    try:
+        return int(str(value).strip(), 0)
+    except ValueError:
+        return None
+
+
+def deterministic_id(
+    prefix: str,
+    *parts: Any,
+    length: int = 32,
+) -> str:
+    payload = "\0".join(str(part) for part in parts)
+    digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    return f"{prefix.upper()}-{digest[:length]}"
+
+
+def unique_strings(values: Iterable[str]) -> tuple[str, ...]:
+    return tuple(dict.fromkeys(value for value in values if value))

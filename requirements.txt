@@ -1,0 +1,17 @@
+# Core HTTP and Agent API
+Flask>=3.1,<4.0
+requests>=2.32,<3.0
+waitress>=3.0,<4.0
+
+# Windows live-data collection
+psutil>=6.1,<8.0
+pywin32>=308; platform_system == "Windows"
+
+# Parsing, time normalization, and reporting
+python-dateutil>=2.9,<3.0
+Jinja2>=3.1,<4.0
+reportlab>=4.2,<5.0
+
+# Testing and code quality
+pytest>=8.3,<10.0
+ruff>=0.9,<1.0
