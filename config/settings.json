@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "application": {
-    "name": "Windows Incident Analysis Toolkit",
-    "version": "0.1.0",
+    "name": "Crow-Eye",
+    "version": "1.0.0",
     "default_timezone": "UTC"
   },
   "paths": {

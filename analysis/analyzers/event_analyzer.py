@@ -8,6 +8,7 @@ from analysis.analyzers.base_analyzer import BaseAnalyzer
 _EVENTS = {
     4698: ("Scheduled Task được tạo", FindingSeverity.MEDIUM),
     4657: ("Registry value bị thay đổi", FindingSeverity.MEDIUM),
+    1100: ("Dịch vụ Event Log bị tắt", FindingSeverity.HIGH),
     1102: ("Security log bị xóa", FindingSeverity.CRITICAL),
     104: ("Event log bị xóa", FindingSeverity.HIGH),
     7040: ("Startup type dịch vụ thay đổi", FindingSeverity.MEDIUM),

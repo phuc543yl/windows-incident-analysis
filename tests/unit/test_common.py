@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import json
 import logging
+import os
 import tempfile
 import unittest
 from dataclasses import dataclass
@@ -57,7 +58,7 @@ class CommonModuleTests(unittest.TestCase):
 
     def test_constants_are_available(self) -> None:
         self.assertTrue(APP_NAME)
-        self.assertEqual(APP_VERSION, "0.1.0")
+        self.assertEqual(APP_VERSION, "1.0.0")
 
     def test_string_enums_are_json_friendly(self) -> None:
         cases = (
@@ -232,6 +233,47 @@ class CommonModuleTests(unittest.TestCase):
         self.assertIn("Bearer ***", console_text)
         self.assertNotIn("secret-value", file_text)
         self.assertNotIn("abc123", file_text)
+
+    def test_lab_env_loads_file_without_overwriting_existing(self) -> None:
+        from unittest.mock import patch
+
+        from common.lab_env import (
+            DEFAULT_AGENT_TOKEN,
+            DEFAULT_AGENT_TOKEN_ENV,
+            describe_agent_token,
+            load_lab_env,
+        )
+
+        env_file = self.temp_path / ".env.lab"
+        env_file.write_text(
+            f"{DEFAULT_AGENT_TOKEN_ENV}=file-token\n",
+            encoding="utf-8",
+        )
+        with patch.dict("os.environ", {}, clear=True):
+            applied = load_lab_env(self.temp_path)
+            self.assertEqual(applied[DEFAULT_AGENT_TOKEN_ENV], "file-token")
+            self.assertIn("Đã nạp", describe_agent_token())
+
+        with patch.dict(
+            "os.environ",
+            {DEFAULT_AGENT_TOKEN_ENV: "already-set"},
+            clear=True,
+        ):
+            applied = load_lab_env(self.temp_path)
+            self.assertNotIn(DEFAULT_AGENT_TOKEN_ENV, applied)
+            self.assertEqual(
+                os.environ[DEFAULT_AGENT_TOKEN_ENV],
+                "already-set",
+            )
+
+        missing = self.temp_path / "empty-root"
+        missing.mkdir()
+        with patch.dict("os.environ", {}, clear=True):
+            applied = load_lab_env(missing)
+            self.assertEqual(
+                applied[DEFAULT_AGENT_TOKEN_ENV],
+                DEFAULT_AGENT_TOKEN,
+            )
 
 
 if __name__ == "__main__":

@@ -27,6 +27,7 @@ class ReportContext:
     alerts: tuple[dict[str, Any], ...]
     incidents: tuple[dict[str, Any], ...]
     timeline: tuple[dict[str, Any], ...]
+    story: tuple[dict[str, Any], ...]
     analyst_notes: tuple[dict[str, Any], ...]
     analyst_conclusion: dict[str, Any]
     recommendations: tuple[str, ...]
@@ -107,6 +108,13 @@ class ReportContextBuilder:
                 "timeline",
                 case.case_id,
             ),
+            story=self._read_envelope(
+                paths.story_json,
+                "milestones",
+                case.case_id,
+            )
+            if paths.story_json.is_file()
+            else (),
             analyst_notes=self._read_notes(paths.notes_json, case.case_id),
             analyst_conclusion=self._read_conclusion(
                 paths.conclusion_json,

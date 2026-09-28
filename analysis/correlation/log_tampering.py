@@ -2,8 +2,16 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 from models.alert import Alert
 from analysis.correlation.base import CorrelationMatch
+
+_COMPANION_RULES = {
+    "suspicious_powershell",
+    "powershell_scriptblock_suspicious",
+    "event_log_service_shutdown",
+}
 
 
 class LogTamperingCorrelation:
@@ -11,21 +19,43 @@ class LogTamperingCorrelation:
         self,
         alerts: tuple[Alert, ...],
     ) -> tuple[CorrelationMatch, ...]:
-        return tuple(
-            CorrelationMatch(
-                incident_type="log_tampering",
-                title="Nghi vấn Windows Event Log bị xóa",
-                description=(
-                    "Phát hiện dấu hiệu xóa Security hoặc System Event Log."
-                ),
-                alerts=(alert,),
-                confidence_score=0.9,
-                recommendations=(
-                    "Bảo toàn EVTX còn lại và xác định actor.",
-                    "Dựng timeline hoạt động trước thời điểm log bị xóa.",
-                ),
-                details={"event_id": alert.details.get("event_id")},
-            )
+        companions = [
+            alert
             for alert in alerts
-            if alert.rule_id == "security_log_cleared"
-        )
+            if alert.rule_id in _COMPANION_RULES
+        ]
+        matches: list[CorrelationMatch] = []
+        for alert in alerts:
+            if alert.rule_id != "security_log_cleared":
+                continue
+            related = tuple(
+                companion
+                for companion in companions
+                if abs(
+                    (companion.created_at - alert.created_at).total_seconds()
+                )
+                <= timedelta(minutes=30).total_seconds()
+            )
+            matches.append(
+                CorrelationMatch(
+                    incident_type="log_tampering",
+                    title="Nghi vấn Windows Event Log bị xóa",
+                    description=(
+                        "Phát hiện dấu hiệu xóa Security hoặc System Event Log."
+                    ),
+                    alerts=(alert, *related),
+                    confidence_score=0.92 if related else 0.78,
+                    recommendations=(
+                        "Bảo toàn EVTX còn lại và xác định actor.",
+                        "Dựng timeline hoạt động trước thời điểm log bị xóa.",
+                    ),
+                    details={
+                        "event_id": alert.details.get("event_id"),
+                        "companion_rule_ids": tuple(
+                            item.rule_id for item in related
+                        ),
+                        "integrity_impact_requires_confirmation": True,
+                    },
+                )
+            )
+        return tuple(matches)

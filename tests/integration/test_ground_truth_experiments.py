@@ -20,11 +20,11 @@ class GroundTruthExperimentTests(unittest.TestCase):
     def test_four_scenarios_match_declared_ground_truth(self) -> None:
         result = run_ground_truth_suite(PROJECT_ROOT)
 
-        self.assertEqual(result.scenario_count, 4)
-        self.assertEqual(result.passed_count, 4)
+        self.assertGreaterEqual(result.scenario_count, 4)
+        self.assertEqual(result.passed_count, result.scenario_count)
         self.assertEqual(result.failed_count, 0)
         self.assertTrue(result.passed)
-        self.assertEqual(result.true_positive_rules, 4)
+        self.assertGreaterEqual(result.true_positive_rules, 4)
         self.assertEqual(result.false_positive_rules, 0)
         self.assertEqual(result.false_negative_rules, 0)
         self.assertEqual(result.precision, 1.0)
@@ -48,14 +48,13 @@ class GroundTruthExperimentTests(unittest.TestCase):
                 item.total_seconds,
                 item.processing_seconds + item.analysis_seconds,
             )
-        self.assertEqual(
-            {item.scenario_id for item in result.results},
+        self.assertTrue(
             {
                 "rdp_brute_force",
                 "suspicious_powershell",
                 "scheduled_task_persistence",
                 "malicious_service",
-            },
+            }.issubset({item.scenario_id for item in result.results})
         )
 
     def test_result_writer_creates_json_and_excel_friendly_csv(self) -> None:
@@ -66,7 +65,7 @@ class GroundTruthExperimentTests(unittest.TestCase):
             data = read_json_object(json_path)
             csv_text = csv_path.read_text(encoding="utf-8-sig")
 
-        self.assertEqual(data["scenario_count"], 4)
+        self.assertGreaterEqual(data["scenario_count"], 4)
         self.assertTrue(data["passed"])
         self.assertIn("scenario_id,passed", csv_text)
         self.assertIn("rdp_brute_force", csv_text)

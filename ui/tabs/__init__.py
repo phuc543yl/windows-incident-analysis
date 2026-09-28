@@ -5,6 +5,8 @@ from ui.tabs.analysis_tab import AnalysisTab
 from ui.tabs.case_tab import CaseTab
 from ui.tabs.collection_tab import CollectionTab
 from ui.tabs.evidence_tab import EvidenceTab
+from ui.tabs.investigate_tab import InvestigateTab
+from ui.tabs.overview_tab import OverviewTab
 from ui.tabs.report_tab import ReportTab
 from ui.tabs.timeline_tab import TimelineTab
 
@@ -14,6 +16,8 @@ __all__ = [
     "CaseTab",
     "CollectionTab",
     "EvidenceTab",
+    "InvestigateTab",
+    "OverviewTab",
     "ReportTab",
     "TimelineTab",
 ]

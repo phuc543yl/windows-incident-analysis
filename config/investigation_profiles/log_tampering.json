@@ -27,7 +27,9 @@
   ],
   "detection_rules": [
     "security_log_cleared",
-    "suspicious_powershell"
+    "suspicious_powershell",
+    "event_log_service_shutdown",
+    "powershell_scriptblock_suspicious"
   ],
   "correlation_profile": "log_tampering"
 }

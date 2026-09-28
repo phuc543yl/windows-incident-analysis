@@ -75,8 +75,7 @@
       "parameters": {
         "event_ids": [
           1,
-          4688,
-          4104
+          4688
         ],
         "process_names": [
           "powershell.exe",
@@ -263,6 +262,118 @@
           "/users/public/"
         ],
         "review_start_type_changes": true
+      }
+    },
+    {
+      "id": "connection_flood",
+      "name": "Service Connection Flood",
+      "enabled": true,
+      "description": "Một nguồn tạo số lượng lớn kết nối tới cùng dịch vụ Windows trong thời gian ngắn.",
+      "source_types": [
+        "network"
+      ],
+      "severity": "high",
+      "risk_score": 80,
+      "mitre_techniques": [
+        "T1499.002"
+      ],
+      "parameters": {
+        "threshold": 100,
+        "window_seconds": 10,
+        "connection_states": [
+          "synreceived",
+          "established",
+          "timewait"
+        ]
+      }
+    },
+    {
+      "id": "event_log_service_shutdown",
+      "name": "Event Log Service Shutdown",
+      "enabled": true,
+      "description": "Dịch vụ Windows Event Log bị tắt, thường đi trước việc xóa log.",
+      "source_types": [
+        "event_log"
+      ],
+      "severity": "high",
+      "risk_score": 80,
+      "mitre_techniques": [
+        "T1562.002"
+      ],
+      "parameters": {
+        "event_ids": [
+          1100
+        ]
+      }
+    },
+    {
+      "id": "powershell_scriptblock_suspicious",
+      "name": "Suspicious PowerShell Script Block",
+      "enabled": true,
+      "description": "Script Block Logging ghi nhận nội dung PowerShell có chỉ báo đáng ngờ.",
+      "source_types": [
+        "event_log"
+      ],
+      "severity": "high",
+      "risk_score": 80,
+      "mitre_techniques": [
+        "T1059.001"
+      ],
+      "parameters": {
+        "event_ids": [
+          4104
+        ],
+        "case_insensitive_indicators": [
+          "-enc",
+          "-encodedcommand",
+          "-executionpolicy bypass",
+          "invoke-expression",
+          "downloadstring",
+          "invoke-webrequest",
+          "wevtutil cl",
+          "clear-eventlog"
+        ],
+        "minimum_indicator_hits": 1
+      }
+    },
+    {
+      "id": "file_integrity_change",
+      "name": "Tracked File Hash Changed",
+      "enabled": true,
+      "description": "File được theo dõi có SHA-256 khác so với baseline trước sự cố.",
+      "source_types": [
+        "file"
+      ],
+      "severity": "high",
+      "risk_score": 75,
+      "mitre_techniques": [
+        "T1565.001"
+      ],
+      "parameters": {
+        "require_hash_pair": true
+      }
+    },
+    {
+      "id": "service_probe_failed",
+      "name": "Service Availability Probe Failed",
+      "enabled": true,
+      "description": "Probe dịch vụ từ máy điều tra thất bại, timeout hoặc bị suy giảm.",
+      "source_types": [
+        "service",
+        "network"
+      ],
+      "severity": "high",
+      "risk_score": 80,
+      "mitre_techniques": [
+        "T1499"
+      ],
+      "parameters": {
+        "failed_states": [
+          "failed",
+          "timeout",
+          "degraded",
+          "unreachable"
+        ]
       }
     }
   ]

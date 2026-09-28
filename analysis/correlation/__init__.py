@@ -4,6 +4,8 @@ from analysis.correlation.account_compromise import (
     AccountCompromiseCorrelation,
 )
 from analysis.correlation.correlation_engine import CorrelationEngine
+from analysis.correlation.profiles import correlators_for_profile
+from analysis.correlation.dos_attack import DosAttackCorrelation
 from analysis.correlation.endpoint_compromise import (
     EndpointCompromiseCorrelation,
 )
@@ -16,6 +18,8 @@ from analysis.correlation.service_disruption import (
 __all__ = [
     "AccountCompromiseCorrelation",
     "CorrelationEngine",
+    "correlators_for_profile",
+    "DosAttackCorrelation",
     "EndpointCompromiseCorrelation",
     "IncidentBuilder",
     "LogTamperingCorrelation",

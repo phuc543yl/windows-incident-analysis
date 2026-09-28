@@ -19,12 +19,12 @@ DEFAULT_EVENT_LOGS = (
     "Security",
     "System",
     "Microsoft-Windows-PowerShell/Operational",
+    "Microsoft-Windows-Sysmon/Operational",
+    "Microsoft-Windows-TaskScheduler/Operational",
+    "Microsoft-Windows-Windows Defender/Operational",
+    "Microsoft-Windows-WinRM/Operational",
     "Microsoft-Windows-TerminalServices-RemoteConnectionManager/Operational",
 )
-
-
-class Channel:
-    pass
 
 
 class EvtxCollector(BaseCollector):
@@ -62,7 +62,7 @@ foreach ($Channel in $Channels) {{
         }}
         $Copied += $Target
     }} catch {{
-        $Warnings += "${Channel}: $($_.Exception.Message)"
+        $Warnings += "${{Channel}}: $($_.Exception.Message)"
     }}
 }}
 [PSCustomObject]@{{

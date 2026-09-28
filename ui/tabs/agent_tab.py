@@ -13,11 +13,13 @@ class AgentTab(ttk.Frame):
         parent: tk.Misc,
         *,
         on_health_check: Callable[[], None],
+        on_start_agent: Callable[[], None] | None = None,
     ) -> None:
         super().__init__(parent, padding=16)
         self.agent_id_var = tk.StringVar(value="-")
         self.endpoint_var = tk.StringVar(value="-")
         self.auth_var = tk.StringVar(value="-")
+        self.token_var = tk.StringVar(value="Chưa kiểm tra biến môi trường")
         self.status_var = tk.StringVar(value="Chưa kiểm tra")
         card = ttk.LabelFrame(self, text="Agent API", padding=14)
         card.pack(fill=tk.X)
@@ -25,6 +27,7 @@ class AgentTab(ttk.Frame):
             ("Agent ID", self.agent_id_var),
             ("Endpoint", self.endpoint_var),
             ("Xác thực", self.auth_var),
+            ("Token lab", self.token_var),
             ("Trạng thái", self.status_var),
         )
         for row, (label, variable) in enumerate(rows):
@@ -34,16 +37,28 @@ class AgentTab(ttk.Frame):
             ttk.Label(card, textvariable=variable).grid(
                 row=row, column=1, sticky="w", padx=(18, 0), pady=4
             )
+        actions = ttk.Frame(card)
+        actions.grid(
+            row=len(rows), column=0, columnspan=2, sticky="w", pady=(12, 0)
+        )
+        if on_start_agent is not None:
+            ttk.Button(
+                actions,
+                text="Khởi động Agent lab",
+                command=on_start_agent,
+            ).pack(side=tk.LEFT)
         ttk.Button(
-            card,
+            actions,
             text="Kiểm tra kết nối",
             command=on_health_check,
-        ).grid(row=len(rows), column=0, columnspan=2, sticky="w", pady=(12, 0))
+        ).pack(side=tk.LEFT, padx=(8, 0))
         ttk.Label(
             self,
             text=(
-                "Token không được nhập hoặc lưu trong giao diện. "
-                "AgentClient đọc token từ biến môi trường đã cấu hình."
+                "Dashboard tự nạp file .env.lab khi khởi động. "
+                "Token không nhập trên giao diện; AgentClient đọc "
+                "WINDOWS_FORENSIC_AGENT_TOKEN. Nếu Agent chưa chạy, "
+                "bấm Khởi động Agent lab rồi Kiểm tra kết nối."
             ),
             style="Muted.TLabel",
             wraplength=760,
@@ -64,6 +79,9 @@ class AgentTab(ttk.Frame):
             if authentication.get("enabled")
             else "Tắt"
         )
+
+    def set_token_status(self, status: str) -> None:
+        self.token_var.set(status)
 
     def set_health(self, result: dict[str, Any]) -> None:
         status = result.get("status", "unknown")

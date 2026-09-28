@@ -44,6 +44,11 @@ class ScheduledTaskCreatedRule(BaseRule):
             )
             if not is_creation_event and not is_task_source:
                 continue
+            collapsed = "/".join(
+                part for part in blob.replace("\\", "/").split("/") if part
+            )
+            if "microsoft/windows/" in f"{collapsed}/":
+                continue
             is_system = target_user(record).casefold() in {
                 "system",
                 "nt authority/system",

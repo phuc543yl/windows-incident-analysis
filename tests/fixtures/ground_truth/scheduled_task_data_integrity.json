@@ -1,0 +1,91 @@
+{
+  "ground_truth": {
+    "cia_impacts": [
+      "integrity"
+    ],
+    "expected_alert_count": 3,
+    "expected_incident_type": "endpoint_compromise",
+    "expected_mitre_techniques": [
+      "T1053.005",
+      "T1059.001",
+      "T1565.001"
+    ],
+    "expected_rule_ids": [
+      "scheduled_task_created",
+      "suspicious_powershell",
+      "file_integrity_change"
+    ]
+  },
+  "profile_id": "endpoint_compromise",
+  "records": [
+    {
+      "artifact_type": "event_logs",
+      "attributes": {
+        "RunLevel": "HighestAvailable",
+        "SubjectUserName": "LabAdmin",
+        "TaskContent": "cmd.exe /c C:\\CrowEyeLab\\update_config.cmd",
+        "TaskName": "\\CrowEyeLab\\TelemetrySync"
+      },
+      "destination_ip": "",
+      "event_id": 4698,
+      "hostname": "WIN8-LAB",
+      "parent_process_id": null,
+      "process_id": null,
+      "process_name": "",
+      "raw_reference": "acquisition/raw/EventLogs/scheduled_task_4698.json",
+      "record_id": "REC-TASK-4698",
+      "source_ip": "",
+      "source_type": "event_log",
+      "summary": "Scheduled Task \\CrowEyeLab\\TelemetrySync created; action: cmd.exe /c C:\\CrowEyeLab\\update_config.cmd",
+      "timestamp": "2026-08-08T11:04:00.000Z",
+      "user": "WIN8-LAB\\LabAdmin"
+    },
+    {
+      "artifact_type": "processes",
+      "attributes": {
+        "CommandLine": "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command Set-Content -Path C:\\CrowEyeLab\\critical_config.txt -Value 'MODE=MODIFIED_BY_SCHEDULED_TASK'",
+        "ParentProcessName": "cmd.exe",
+        "TaskName": "\\CrowEyeLab\\TelemetrySync"
+      },
+      "destination_ip": "",
+      "event_id": null,
+      "hostname": "WIN8-LAB",
+      "parent_process_id": 5488,
+      "process_id": 5520,
+      "process_name": "powershell.exe",
+      "raw_reference": "acquisition/live/processes.json",
+      "record_id": "REC-TASK-PS-PAYLOAD",
+      "source_ip": "",
+      "source_type": "process",
+      "summary": "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command Set-Content -Path C:\\CrowEyeLab\\critical_config.txt -Value 'MODE=MODIFIED_BY_SCHEDULED_TASK'",
+      "timestamp": "2026-08-08T11:05:00.000Z",
+      "user": "WIN8-LAB\\LabAdmin"
+    },
+    {
+      "artifact_type": "files",
+      "attributes": {
+        "content_changed": true,
+        "file_path": "C:/CrowEyeLab/critical_config.txt",
+        "sha256_after": "26865e926d38096519342089ea9b3120f0d0091b749e3e0634a4f97d842b5a9b",
+        "sha256_before": "ab47d1f9243f858e8fc5dba066499b6327262559c4fc41108174d7b04d89f5e8"
+      },
+      "destination_ip": "",
+      "event_id": null,
+      "hostname": "WIN8-LAB",
+      "parent_process_id": null,
+      "process_id": null,
+      "process_name": "",
+      "raw_reference": "acquisition/raw/Files/critical_config_after.txt",
+      "record_id": "REC-TASK-FILE-CHANGE",
+      "source_ip": "",
+      "source_type": "file",
+      "summary": "critical_config.txt changed by scheduled task payload",
+      "timestamp": "2026-08-08T11:05:01.000Z",
+      "user": "WIN8-LAB\\LabAdmin"
+    }
+  ],
+  "scenario_id": "scheduled_task_data_integrity",
+  "schema_version": 1,
+  "target_hostname": "WIN8-LAB",
+  "title": "Scheduled Task Persistence gây thay đổi dữ liệu"
+}

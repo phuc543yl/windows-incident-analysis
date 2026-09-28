@@ -117,6 +117,11 @@ class AnalysisService:
             alerts,
             findings=findings,
             timeline=timeline_items,
+            profile=str(
+                plan.options.get("correlation_profile")
+                or plan.profile_id
+                or ""
+            ),
         )
 
         paths = self.repository.paths(case.case_id)
@@ -158,6 +163,24 @@ class AnalysisService:
                 paths.incidents_json,
                 _envelope(case.case_id, "incidents", incidents),
             )
+            try:
+                from analysis.investigation.investigation_service import (
+                    InvestigationService,
+                )
+
+                InvestigationService(
+                    self.repository.project,
+                    actor=self.actor,
+                ).refresh_derived(
+                    case.case_id,
+                    records=record_items,
+                    findings=findings,
+                    alerts=alerts,
+                    incidents=incidents,
+                    timeline=timeline_items,
+                )
+            except Exception:
+                pass
             AuditLogger(case.case_id, self.repository.project).log(
                 "analysis_completed",
                 actor=self.actor,

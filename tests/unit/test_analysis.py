@@ -393,10 +393,10 @@ class RiskAndMitreTests(AnalysisTestCase):
 
 
 class DetectionRuleTests(AnalysisTestCase):
-    def test_rule_engine_loads_all_nine_configured_rules(self) -> None:
+    def test_rule_engine_loads_all_configured_rules(self) -> None:
         engine = RuleEngine(self.temp_path)
 
-        self.assertEqual(len(engine.rules), 9)
+        self.assertEqual(len(engine.rules), 14)
         self.assertEqual(
             {rule.rule_id for rule in engine.rules},
             {
@@ -409,6 +409,11 @@ class DetectionRuleTests(AnalysisTestCase):
                 "security_log_cleared",
                 "service_stopped",
                 "service_configuration_changed",
+                "connection_flood",
+                "event_log_service_shutdown",
+                "powershell_scriptblock_suspicious",
+                "file_integrity_change",
+                "service_probe_failed",
             },
         )
 
@@ -511,6 +516,46 @@ class DetectionRuleTests(AnalysisTestCase):
         rule = RuleEngine(self.temp_path).get("service_stopped")
 
         self.assertEqual(rule.evaluate((running,)), ())
+
+    def test_connection_flood_requires_threshold_for_same_service(self) -> None:
+        def records(count: int, source: str, prefix: str):
+            return tuple(
+                self.record(
+                    minute=20,
+                    artifact_type=ArtifactType.NETWORK,
+                    source_type="live_network",
+                    record_id=f"REC-{prefix}-{index}",
+                    summary="Live TCP connection",
+                    source_ip="192.168.56.20",
+                    destination_ip=source,
+                    attributes={
+                        "protocol": "tcp",
+                        "local_address": "192.168.56.20",
+                        "local_port": 8080,
+                        "remote_address": source,
+                        "remote_port": 40000 + index,
+                        "state": "SynReceived",
+                    },
+                )
+                for index in range(count)
+            )
+
+        rule = RuleEngine(self.temp_path).get("connection_flood")
+        below = records(99, "192.168.56.30", "BELOW")
+        flood = records(100, "192.168.56.30", "FLOOD")
+        distributed = (
+            *records(60, "192.168.56.31", "SRC-A"),
+            *records(60, "192.168.56.32", "SRC-B"),
+        )
+
+        self.assertEqual(rule.evaluate(below), ())
+        self.assertEqual(rule.evaluate(distributed), ())
+        alerts = rule.evaluate(flood)
+        self.assertEqual(len(alerts), 1)
+        self.assertEqual(alerts[0].details["connection_count"], 100)
+        self.assertEqual(alerts[0].details["source_ip"], "192.168.56.30")
+        self.assertEqual(alerts[0].details["destination_port"], 8080)
+        self.assertEqual(alerts[0].mitre_techniques, ("T1499.002",))
 
     def test_rule_engine_can_limit_rules_to_investigation_profile(self) -> None:
         alerts = RuleEngine(self.temp_path).evaluate(
@@ -669,6 +714,42 @@ class CorrelationTests(AnalysisTestCase):
         )
         with self.assertRaisesRegex(AnalysisError, "nhiều Case"):
             engine.correlate((alerts[0], foreign))
+
+    def test_connection_flood_correlates_to_suspected_dos(self) -> None:
+        records = tuple(
+            self.record(
+                minute=20,
+                artifact_type=ArtifactType.NETWORK,
+                source_type="live_network",
+                record_id=f"REC-DOS-{index}",
+                summary="Live TCP connection",
+                source_ip="192.168.56.20",
+                destination_ip="192.168.56.30",
+                attributes={
+                    "protocol": "tcp",
+                    "local_address": "192.168.56.20",
+                    "local_port": 8080,
+                    "remote_address": "192.168.56.30",
+                    "remote_port": 45000 + index,
+                    "state": "SynReceived",
+                },
+            )
+            for index in range(100)
+        )
+        alert = RuleEngine(self.temp_path).get(
+            "connection_flood"
+        ).evaluate(records)[0]
+
+        incidents = CorrelationEngine().correlate((alert,))
+
+        self.assertEqual(len(incidents), 1)
+        incident = incidents[0]
+        self.assertEqual(incident.details["incident_type"], "dos_attack")
+        self.assertEqual(incident.status, IncidentStatus.SUSPECTED)
+        self.assertEqual(incident.cia_impacts, ())
+        self.assertTrue(
+            incident.details["availability_impact_requires_confirmation"]
+        )
 
 
 class AnalysisServiceTests(AnalysisTestCase):

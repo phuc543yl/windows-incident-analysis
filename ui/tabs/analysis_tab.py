@@ -119,6 +119,20 @@ class AnalysisTab(ttk.Frame):
         notebook.add(self.findings, text="Findings")
         notebook.add(self.alerts, text="Alerts")
         notebook.add(incident_frame, text="Incidents")
+        detail = ttk.LabelFrame(self, text="Chi tiết bản ghi đã chọn", padding=6)
+        detail.pack(fill=tk.X, pady=(8, 0))
+        self.detail = tk.Text(detail, height=6, wrap=tk.WORD)
+        self.detail.pack(fill=tk.X)
+        self.detail.configure(state=tk.DISABLED)
+        for table, key in (
+            (self.findings, "finding_id"),
+            (self.alerts, "alert_id"),
+            (self.incidents, "incident_id"),
+        ):
+            table.tree.bind(
+                "<<TreeviewSelect>>",
+                lambda _event, current=table: self._show_detail(current),
+            )
 
     def set_results(self, results: dict[str, Any]) -> None:
         self.findings.set_rows(
@@ -133,6 +147,22 @@ class AnalysisTab(ttk.Frame):
             results.get("incidents", []),
             id_key="incident_id",
         )
+
+    def _show_detail(self, table: DataTable) -> None:
+        record = table.selected_record()
+        self.detail.configure(state=tk.NORMAL)
+        self.detail.delete("1.0", tk.END)
+        if record:
+            lines = [
+                f"{key}: {value}"
+                for key, value in record.items()
+                if key != "details"
+            ]
+            details = record.get("details")
+            if details:
+                lines.append(f"details: {details}")
+            self.detail.insert("1.0", "\n".join(lines))
+        self.detail.configure(state=tk.DISABLED)
 
     def _save_decision(self) -> None:
         incident = self.incidents.selected_record()

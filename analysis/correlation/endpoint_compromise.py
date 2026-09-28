@@ -9,10 +9,12 @@ from analysis.correlation.base import CorrelationMatch
 
 _ENDPOINT_RULES = {
     "suspicious_powershell",
+    "powershell_scriptblock_suspicious",
     "registry_autorun_change",
     "scheduled_task_created",
     "suspicious_file_execution",
     "service_configuration_changed",
+    "file_integrity_change",
 }
 
 
@@ -43,6 +45,7 @@ class EndpointCompromiseCorrelation:
             rule_ids = {alert.rule_id for alert in window}
             if len(rule_ids) < 2:
                 continue
+            shared = _shared_entities(window)
             consumed.update(alert.alert_id for alert in window)
             matches.append(
                 CorrelationMatch(
@@ -55,13 +58,33 @@ class EndpointCompromiseCorrelation:
                     alerts=window,
                     confidence_score=min(
                         0.95,
-                        0.65 + 0.08 * len(rule_ids),
+                        0.65 + 0.08 * len(rule_ids) + (0.05 if shared else 0),
                     ),
                     recommendations=(
                         "Cô lập endpoint nếu chuyên viên xác nhận.",
                         "Thu file liên quan và mở rộng timeline tiến trình.",
                     ),
-                    details={"rule_ids": tuple(sorted(rule_ids))},
+                    details={
+                        "rule_ids": tuple(sorted(rule_ids)),
+                        "shared_entities": shared,
+                    },
                 )
             )
         return tuple(matches)
+
+
+def _shared_entities(alerts: tuple[Alert, ...]) -> tuple[str, ...]:
+    values: dict[str, set[str]] = {}
+    for alert in alerts:
+        for key in ("target_user", "source_ip", "hostname", "file_path"):
+            value = str(alert.details.get(key, "")).strip().casefold()
+            if not value:
+                continue
+            values.setdefault(key, set()).add(value)
+    return tuple(
+        sorted(
+            f"{key}:{next(iter(items))}"
+            for key, items in values.items()
+            if len(items) == 1
+        )
+    )

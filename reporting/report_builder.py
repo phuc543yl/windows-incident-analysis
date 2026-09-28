@@ -74,6 +74,7 @@ class ReportBuilder:
                 "alerts": [dict(item) for item in context.alerts],
                 "incidents": [dict(item) for item in context.incidents],
                 "timeline": [dict(item) for item in context.timeline],
+                "story": [dict(item) for item in context.story],
             },
             "analyst": {
                 "notes": [dict(item) for item in context.analyst_notes],

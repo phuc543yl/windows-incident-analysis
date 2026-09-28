@@ -154,6 +154,37 @@ class HtmlExporter:
                     "recommendations",
                 ),
             ),
+            "cia_evidence": _cards(
+                [
+                    item
+                    for item in analysis.get("incidents", [])
+                    if item.get("cia_impacts")
+                ],
+                "incident_id",
+                "title",
+                (
+                    "cia_impacts",
+                    "status",
+                    "analyst_conclusion",
+                ),
+            ),
+            "story_table": _object_table(
+                analysis.get("story")
+                or analysis.get("timeline", [])[:8],
+                (
+                    ("timestamp", "Thời điểm"),
+                    ("title", "Mốc"),
+                    ("summary", "Tóm tắt"),
+                    ("incident_id", "Incident"),
+                )
+                if analysis.get("story")
+                else (
+                    ("timestamp", "Thời điểm"),
+                    ("event_type", "Loại"),
+                    ("summary", "Tóm tắt"),
+                    ("hostname", "Hostname"),
+                ),
+            ),
             "timeline_table": _object_table(
                 analysis.get("timeline", []),
                 (

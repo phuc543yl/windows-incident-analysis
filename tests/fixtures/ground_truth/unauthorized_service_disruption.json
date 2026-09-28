@@ -1,0 +1,90 @@
+{
+  "ground_truth": {
+    "cia_impacts": [
+      "availability"
+    ],
+    "expected_alert_count": 2,
+    "expected_incident_type": "service_disruption",
+    "expected_mitre_techniques": [
+      "T1543.003",
+      "T1489"
+    ],
+    "expected_rule_ids": [
+      "service_configuration_changed",
+      "service_stopped"
+    ]
+  },
+  "profile_id": "service_disruption",
+  "records": [
+    {
+      "artifact_type": "services",
+      "attributes": {
+        "StartMode": "Auto",
+        "State": "Running",
+        "service_name": "CrowEyeLabService"
+      },
+      "destination_ip": "",
+      "event_id": null,
+      "hostname": "WIN8-LAB",
+      "parent_process_id": null,
+      "process_id": null,
+      "process_name": "",
+      "raw_reference": "acquisition/live/services.json",
+      "record_id": "REC-SVC-BASELINE",
+      "source_ip": "",
+      "source_type": "service",
+      "summary": "CrowEyeLabService state=Running start_type=Automatic",
+      "timestamp": "2026-08-08T12:01:00.000Z",
+      "user": ""
+    },
+    {
+      "artifact_type": "event_logs",
+      "attributes": {
+        "ChangeApproved": false,
+        "NewStartType": "disabled",
+        "OldStartType": "auto start",
+        "param1": "CrowEyeLabService",
+        "service_name": "CrowEyeLabService"
+      },
+      "destination_ip": "",
+      "event_id": 7040,
+      "hostname": "WIN8-LAB",
+      "parent_process_id": null,
+      "process_id": null,
+      "process_name": "",
+      "raw_reference": "acquisition/raw/EventLogs/service_control_manager_7040_7036.json",
+      "record_id": "REC-SVC-7040",
+      "source_ip": "",
+      "source_type": "event_log",
+      "summary": "The start type of the CrowEyeLabService service was changed from auto start to disabled",
+      "timestamp": "2026-08-08T12:05:01.000Z",
+      "user": ""
+    },
+    {
+      "artifact_type": "event_logs",
+      "attributes": {
+        "ChangeApproved": false,
+        "param1": "CrowEyeLabService",
+        "param2": "stopped",
+        "service_name": "CrowEyeLabService"
+      },
+      "destination_ip": "",
+      "event_id": 7036,
+      "hostname": "WIN8-LAB",
+      "parent_process_id": null,
+      "process_id": null,
+      "process_name": "",
+      "raw_reference": "acquisition/raw/EventLogs/service_control_manager_7040_7036.json",
+      "record_id": "REC-SVC-7036",
+      "source_ip": "",
+      "source_type": "event_log",
+      "summary": "The CrowEyeLabService service entered the stopped state",
+      "timestamp": "2026-08-08T12:05:05.000Z",
+      "user": ""
+    }
+  ],
+  "scenario_id": "unauthorized_service_disruption",
+  "schema_version": 1,
+  "target_hostname": "WIN8-LAB",
+  "title": "Unauthorized Windows Service Disruption"
+}

@@ -1,0 +1,140 @@
+{
+  "cases": [
+    {
+      "actual_rule_ids": [
+        "connection_flood"
+      ],
+      "alerts": 1,
+      "case_id": "CASE-20260808-901",
+      "confirmed_cia_impacts": [
+        "availability"
+      ],
+      "confirmed_incident_id": "INC-8557e2f5fad23d0b2bb9ae7612a916e6",
+      "evidence_integrity_verified": true,
+      "evidence_items": 3,
+      "expected_incident_type_found": true,
+      "findings": 0,
+      "generated_reports": [
+        "csv",
+        "html",
+        "json"
+      ],
+      "incidents": 1,
+      "input_records": 123,
+      "normalized_records": 123,
+      "sample_data": true,
+      "scenario_id": "dos_availability",
+      "timeline_events": 123,
+      "vm_measurements": {
+        "analysis_seconds": null,
+        "case_size_bytes_on_vm": null,
+        "collection_seconds": null,
+        "note": "Điền bằng số đo từ lần chạy thật trên Windows 8 VM; không dùng timing của case mẫu.",
+        "processing_seconds": null
+      }
+    },
+    {
+      "actual_rule_ids": [
+        "security_log_cleared",
+        "suspicious_powershell"
+      ],
+      "alerts": 2,
+      "case_id": "CASE-20260808-902",
+      "confirmed_cia_impacts": [
+        "integrity"
+      ],
+      "confirmed_incident_id": "INC-9b9ecbb2e36dbb8821bb2205db799188",
+      "evidence_integrity_verified": true,
+      "evidence_items": 4,
+      "expected_incident_type_found": true,
+      "findings": 2,
+      "generated_reports": [
+        "csv",
+        "html",
+        "json"
+      ],
+      "incidents": 1,
+      "input_records": 3,
+      "normalized_records": 3,
+      "sample_data": true,
+      "scenario_id": "security_log_anti_forensics",
+      "timeline_events": 3,
+      "vm_measurements": {
+        "analysis_seconds": null,
+        "case_size_bytes_on_vm": null,
+        "collection_seconds": null,
+        "note": "Điền bằng số đo từ lần chạy thật trên Windows 8 VM; không dùng timing của case mẫu.",
+        "processing_seconds": null
+      }
+    },
+    {
+      "actual_rule_ids": [
+        "scheduled_task_created",
+        "suspicious_powershell"
+      ],
+      "alerts": 2,
+      "case_id": "CASE-20260808-903",
+      "confirmed_cia_impacts": [
+        "integrity"
+      ],
+      "confirmed_incident_id": "INC-23884c2498cab6cdc943392dcc630c34",
+      "evidence_integrity_verified": true,
+      "evidence_items": 5,
+      "expected_incident_type_found": true,
+      "findings": 2,
+      "generated_reports": [
+        "csv",
+        "html",
+        "json"
+      ],
+      "incidents": 1,
+      "input_records": 3,
+      "normalized_records": 3,
+      "sample_data": true,
+      "scenario_id": "scheduled_task_data_integrity",
+      "timeline_events": 3,
+      "vm_measurements": {
+        "analysis_seconds": null,
+        "case_size_bytes_on_vm": null,
+        "collection_seconds": null,
+        "note": "Điền bằng số đo từ lần chạy thật trên Windows 8 VM; không dùng timing của case mẫu.",
+        "processing_seconds": null
+      }
+    },
+    {
+      "actual_rule_ids": [
+        "service_configuration_changed",
+        "service_stopped"
+      ],
+      "alerts": 2,
+      "case_id": "CASE-20260808-904",
+      "confirmed_cia_impacts": [
+        "availability"
+      ],
+      "confirmed_incident_id": "INC-3701e6cd4b0c87b7642de819065342b2",
+      "evidence_integrity_verified": true,
+      "evidence_items": 4,
+      "expected_incident_type_found": true,
+      "findings": 3,
+      "generated_reports": [
+        "csv",
+        "html",
+        "json"
+      ],
+      "incidents": 1,
+      "input_records": 3,
+      "normalized_records": 3,
+      "sample_data": true,
+      "scenario_id": "unauthorized_service_disruption",
+      "timeline_events": 3,
+      "vm_measurements": {
+        "analysis_seconds": null,
+        "case_size_bytes_on_vm": null,
+        "collection_seconds": null,
+        "note": "Điền bằng số đo từ lần chạy thật trên Windows 8 VM; không dùng timing của case mẫu.",
+        "processing_seconds": null
+      }
+    }
+  ],
+  "schema_version": 1
+}

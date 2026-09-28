@@ -9,23 +9,10 @@ from models.alert import Alert
 from models.finding import Finding
 from models.incident import Incident
 from models.timeline_event import TimelineEvent
-from analysis.correlation.account_compromise import (
-    AccountCompromiseCorrelation,
-)
-from analysis.correlation.endpoint_compromise import (
-    EndpointCompromiseCorrelation,
-)
 from analysis.correlation.incident_builder import IncidentBuilder
-from analysis.correlation.log_tampering import LogTamperingCorrelation
-from analysis.correlation.service_disruption import (
-    ServiceDisruptionCorrelation,
-)
-
-DEFAULT_CORRELATORS = (
-    AccountCompromiseCorrelation(),
-    EndpointCompromiseCorrelation(),
-    LogTamperingCorrelation(),
-    ServiceDisruptionCorrelation(),
+from analysis.correlation.profiles import (
+    ALL_CORRELATORS,
+    correlators_for_profile,
 )
 
 
@@ -33,7 +20,7 @@ class CorrelationEngine:
     def __init__(
         self,
         *,
-        correlators=DEFAULT_CORRELATORS,
+        correlators=ALL_CORRELATORS,
         incident_builder: IncidentBuilder | None = None,
     ) -> None:
         self.correlators = tuple(correlators)
@@ -45,6 +32,7 @@ class CorrelationEngine:
         *,
         findings: Iterable[Finding] = (),
         timeline: Iterable[TimelineEvent] = (),
+        profile: str | None = None,
     ) -> tuple[Incident, ...]:
         alert_items = tuple(alerts)
         finding_items = tuple(findings)
@@ -54,9 +42,14 @@ class CorrelationEngine:
             raise AnalysisError(
                 "CorrelationEngine không thể xử lý nhiều Case."
             )
+        correlators = (
+            correlators_for_profile(profile)
+            if profile is not None
+            else self.correlators
+        )
         incidents: list[Incident] = []
         seen: set[str] = set()
-        for correlator in self.correlators:
+        for correlator in correlators:
             for match in correlator.correlate(alert_items):
                 incident = self.incident_builder.build(
                     match,

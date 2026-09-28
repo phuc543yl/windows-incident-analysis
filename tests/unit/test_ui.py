@@ -28,6 +28,8 @@ from ui.tabs import (
     CaseTab,
     CollectionTab,
     EvidenceTab,
+    InvestigateTab,
+    OverviewTab,
     ReportTab,
     TimelineTab,
 )
@@ -435,14 +437,16 @@ class ComponentHelperTests(unittest.TestCase):
     def test_all_required_tabs_are_importable(self) -> None:
         required = {
             CaseTab,
+            OverviewTab,
             CollectionTab,
             EvidenceTab,
             AnalysisTab,
+            InvestigateTab,
             TimelineTab,
             AgentTab,
             ReportTab,
         }
-        self.assertEqual(len(required), 7)
+        self.assertEqual(len(required), 9)
 
 
 class TimelineFilterTests(unittest.TestCase):

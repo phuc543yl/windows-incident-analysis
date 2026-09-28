@@ -1,20 +1,21 @@
-# TÃ­ch há»£p cÃ´ng cá»¥ DFIR
+# Tích hợp công cụ DFIR
 
-## 1. Má»¥c tiÃªu
+## 1. Mục tiêu
 
-ThÆ° má»¥c `integrations/` bao bá»c cÃ¡c cÃ´ng cá»¥ DFIR bÃªn ngoÃ i báº±ng ba há»£p Ä‘á»“ng:
+Thư mục `integrations/` bao bọc các công cụ DFIR bên ngoài bằng ba hợp đồng:
 
-1. `ToolRegistry` Ä‘á»c vÃ  kiá»ƒm tra definition trong
+1. `ToolRegistry` đọc và kiểm tra definition trong
    `config/tool_integrations.json`;
-2. adapter xÃ¢y argument cá»‘ Ä‘á»‹nh tá»« input Ä‘Ã£ xÃ¡c thá»±c vÃ  gá»i `ToolRunner`;
-3. parser chuyá»ƒn CSV/JSON/JSONL thÃ nh `NormalizedRecord`.
+2. adapter xây argument cố định từ input đã xác thực và gọi `ToolRunner`;
+3. parser chuyển CSV/JSON/JSONL thành `NormalizedRecord`.
 
-Executable khÃ´ng Ä‘Æ°á»£c commit vÃ o Git. NgÆ°á»i triá»ƒn khai tá»± Ä‘áº·t binary há»£p phÃ¡p
-vÃ o Ä‘Ãºng vá»‹ trÃ­ dÆ°á»›i `tools/`.
+Executable không được commit vào Git. Người triển khai tự đặt binary hợp pháp
+vào đúng vị trí dưới `tools/`. Dashboard tab Overview hiện trạng thái
+thiếu/đủ của từng tool trước khi demo.
 
-## 2. Danh sÃ¡ch tÃ­ch há»£p
+## 2. Danh sách tích hợp
 
-| Tool ID | Artifact | Adapter/parser | Output | Timeout | Vá»‹ trÃ­ executable |
+| Tool ID | Artifact | Adapter/parser | Output | Timeout | Vị trí executable |
 |---|---|---|---|---:|---|
 | `hayabusa` | `event_logs` | `hayabusa` | CSV | 300 s | `tools/Hayabusa/hayabusa.exe` |
 | `evtxecmd` | `event_logs` | `evtxecmd` | CSV | 300 s | `tools/EZTools/net9/EvtxeCmd/EvtxECmd.exe` |
@@ -23,12 +24,12 @@ vÃ o Ä‘Ãºng vá»‹ trÃ­ dÆ°á»›i `tools/`.
 | `mftecmd` | `mft` | `mftecmd` | CSV | 300 s | `tools/EZTools/net9/MFTECmd.exe` |
 | `recmd` | `registry` | `recmd` | CSV | 300 s | `tools/EZTools/net9/RECmd/RECmd.exe` |
 
-Hayabusa vÃ  EvtxECmd lÃ  hai tool báº¯t buá»™c cho MVP theo cáº¥u hÃ¬nh hiá»‡n táº¡i. CÃ¡c
-tool cÃ²n láº¡i phá»¥c vá»¥ Ä‘iá»u tra persistence vÃ  file-system artifact.
+Hayabusa và EvtxECmd là hai tool bắt buộc cho MVP theo cấu hình hiện tại. Các
+tool còn lại phục vụ điều tra persistence và file-system artifact.
 
-## 3. Definition cáº¥u hÃ¬nh
+## 3. Definition cấu hình
 
-Má»—i pháº§n tá»­ trong `tools` cÃ³ schema:
+Mỗi phần tử trong `tools` có schema:
 
 ```json
 {
@@ -46,26 +47,26 @@ Má»—i pháº§n tá»­ trong `tools` cÃ³ schema:
 }
 ```
 
-Quy táº¯c:
+Quy tắc:
 
-- `id` vÃ  `adapter` lÃ  chá»¯ thÆ°á»ng, báº¯t Ä‘áº§u báº±ng chá»¯ cÃ¡i;
-- `executable` lÃ  Ä‘Æ°á»ng dáº«n tÆ°Æ¡ng Ä‘á»‘i an toÃ n báº¯t Ä‘áº§u báº±ng `tools/`;
-- format chá»‰ lÃ  `csv`, `json` hoáº·c `jsonl`;
-- `supported_artifacts` khÃ´ng rá»—ng vÃ  dÃ¹ng giÃ¡ trá»‹ `ArtifactType`;
-- timeout lÃ  sá»‘ dÆ°Æ¡ng;
-- ID khÃ´ng Ä‘Æ°á»£c trÃ¹ng;
-- `enabled: false` ngÄƒn tool cháº¡y dÃ¹ executable tá»“n táº¡i.
+- `id` và `adapter` là chữ thường, bắt đầu bằng chữ cái;
+- `executable` là đường dẫn tương đối an toàn bắt đầu bằng `tools/`;
+- format chỉ là `csv`, `json` hoặc `jsonl`;
+- `supported_artifacts` không rỗng và dùng giá trị `ArtifactType`;
+- timeout là số dương;
+- ID không được trùng;
+- `enabled: false` ngăn tool chạy dù executable tồn tại.
 
-## 4. Kiá»ƒm tra trÆ°á»›c khi cháº¡y
+## 4. Kiểm tra trước khi chạy
 
-`ToolValidator` xÃ¡c nháº­n:
+`ToolValidator` xác nhận:
 
-- executable náº±m dÆ°á»›i thÆ° má»¥c `tools/`;
-- path tá»“n táº¡i vÃ  lÃ  file;
-- executable khÃ´ng pháº£i symbolic link;
-- tráº¡ng thÃ¡i enable Ä‘Æ°á»£c pháº£n Ã¡nh thÃ nh warning hoáº·c lá»—i khi yÃªu cáº§u cháº¡y.
+- executable nằm dưới thư mục `tools/`;
+- path tồn tại và là file;
+- executable không phải symbolic link;
+- trạng thái enable được phản ánh thành warning hoặc lỗi khi yêu cầu chạy.
 
-Kiá»ƒm tra trong Python:
+Kiểm tra trong Python:
 
 ```python
 from integrations.tool_registry import ToolRegistry
@@ -76,51 +77,51 @@ for result in ToolValidator(registry).validate_all():
     print(result.to_dict())
 ```
 
-Thiáº¿u binary lÃ  lá»—i triá»ƒn khai, khÃ´ng Ä‘Æ°á»£c kháº¯c phá»¥c báº±ng cÃ¡ch thay executable
-thÃ nh má»™t Ä‘Æ°á»ng dáº«n ngoÃ i `tools/`.
+Thiếu binary là lỗi triển khai, không được khắc phục bằng cách thay executable
+thành một đường dẫn ngoài `tools/`.
 
-## 5. Luá»“ng adapter vÃ  parser
+## 5. Luồng adapter và parser
 
 ```mermaid
 flowchart TD
-    A["Raw artifact trong Case"] --> B["Adapter kiá»ƒm tra input"]
-    B --> C["ToolRunner cháº¡y shell=False"]
-    C --> D["CSV vÃ  stdout/stderr"]
-    D --> E["Parser táº¡o NormalizedRecord"]
-    E --> F["Processing vÃ  analysis"]
+    A["Raw artifact trong Case"] --> B["Adapter kiểm tra input"]
+    B --> C["ToolRunner chạy shell=False"]
+    C --> D["CSV và stdout/stderr"]
+    D --> E["Parser tạo NormalizedRecord"]
+    E --> F["Processing và analysis"]
 ```
 
-Má»—i láº§n cháº¡y cÃ³ thÆ° má»¥c riÃªng:
+Mỗi lần chạy có thư mục riêng:
 
 ```text
 analysis/tool_outputs/<tool_id>/<run_id>/
-â”œâ”€â”€ <tool-output>.csv
-â”œâ”€â”€ stdout.txt
-â””â”€â”€ stderr.txt
+├── <tool-output>.csv
+├── stdout.txt
+└── stderr.txt
 ```
 
-`logs/tool_runs.log` ghi `ToolResult`, gá»“m command, thá»i gian, exit code,
-status, output file vÃ  lá»—i rÃºt gá»n. Output pháº£i náº±m trong run directory; symlink
-vÃ  output thoÃ¡t khá»i Case bá»‹ tá»« chá»‘i.
+`logs/tool_runs.log` ghi `ToolResult`, gồm command, thời gian, exit code,
+status, output file và lỗi rút gọn. Output phải nằm trong run directory; symlink
+và output thoát khỏi Case bị từ chối.
 
-## 6. Há»£p Ä‘á»“ng input vÃ  lá»‡nh
+## 6. Hợp đồng input và lệnh
 
-| Tool | Input | Argument chÃ­nh do adapter dá»±ng |
+| Tool | Input | Argument chính do adapter dựng |
 |---|---|---|
-| Hayabusa | Má»™t thÆ° má»¥c EVTX | `csv-timeline -d <dir> -o <csv> --UTC` |
-| EvtxECmd | Má»™t file hoáº·c thÆ° má»¥c EVTX | `-f/-d <input> --csv <dir> --csvf evtxecmd.csv` |
-| PECmd | Má»™t file hoáº·c thÆ° má»¥c Prefetch | `-f/-d <input> --csv <dir> --csvf pecmd.csv` |
-| AmcacheParser | Má»™t file `Amcache.hve` | `-f <file> --csv <dir> --csvf amcache.csv` |
-| MFTECmd | Má»™t file `$MFT` | `-f <file> --csv <dir> --csvf mftecmd.csv` |
-| RECmd | Má»™t file hoáº·c thÆ° má»¥c Registry hive | `-f/-d <input> --csv <dir> --csvf recmd.csv` |
+| Hayabusa | Một thư mục EVTX | `csv-timeline -d <dir> -o <csv> --UTC` |
+| EvtxECmd | Một file hoặc thư mục EVTX | `-f/-d <input> --csv <dir> --csvf evtxecmd.csv` |
+| PECmd | Một file hoặc thư mục Prefetch | `-f/-d <input> --csv <dir> --csvf pecmd.csv` |
+| AmcacheParser | Một file `Amcache.hve` | `-f <file> --csv <dir> --csvf amcache.csv` |
+| MFTECmd | Một file `$MFT` | `-f <file> --csv <dir> --csvf mftecmd.csv` |
+| RECmd | Một file hoặc thư mục Registry hive | `-f/-d <input> --csv <dir> --csvf recmd.csv` |
 
-Adapter nháº­n Ä‘Æ°á»ng dáº«n Ä‘Ã£ resolve, khÃ´ng nháº­n chuá»—i command hoÃ n chá»‰nh tá»« UI.
-`ToolRunner` gá»i `subprocess.run` vá»›i `shell=False`, timeout theo definition vÃ 
-decode output báº±ng UTF-8 vá»›i kÃ½ tá»± lá»—i Ä‘Æ°á»£c thay tháº¿.
+Adapter nhận đường dẫn đã resolve, không nhận chuỗi command hoàn chỉnh từ UI.
+`ToolRunner` gọi `subprocess.run` với `shell=False`, timeout theo definition và
+decode output bằng UTF-8 với ký tự lỗi được thay thế.
 
-## 7. Ãnh xáº¡ parser
+## 7. Ánh xạ parser
 
-| Parser | `source_type` | Timestamp Æ°u tiÃªn | Thá»±c thá»ƒ chÃ­nh |
+| Parser | `source_type` | Timestamp ưu tiên | Thực thể chính |
 |---|---|---|---|
 | Hayabusa | `hayabusa_event` | Timestamp/Datetime/TimeCreated | event, user, process, IP |
 | EvtxECmd | `evtxecmd_event` | TimeCreated/Timestamp/DateTime | event ID, user, process ID |
@@ -129,13 +130,13 @@ decode output báº±ng UTF-8 vá»›i kÃ½ tá»± lá»—i Ä‘Æ°á»£c
 | MFTECmd | `mftecmd_file` | MFT modified/created | file path |
 | RECmd | `recmd_registry` | Registry last-write | key/value path |
 
-Parser giá»¯ toÃ n bá»™ row nguá»“n trong `attributes`, Ä‘á»“ng thá»i chá»n cÃ¡c trÆ°á»ng
-chung cho detection vÃ  correlation. `raw_reference` luÃ´n trá» vá» output tÆ°Æ¡ng
-Ä‘á»‘i trong Case.
+Parser giữ toàn bộ row nguồn trong `attributes`, đồng thời chọn các trường
+chung cho detection và correlation. `raw_reference` luôn trỏ về output tương
+đối trong Case.
 
-## 8. Quan há»‡ vá»›i investigation profile
+## 8. Quan hệ với investigation profile
 
-| Profile | Tool chÃ­nh |
+| Profile | Tool chính |
 |---|---|
 | `account_compromise` | Hayabusa, EvtxECmd |
 | `endpoint_compromise` | Hayabusa, EvtxECmd, PECmd, AmcacheParser, MFTECmd, RECmd |
@@ -143,28 +144,27 @@ chung cho detection vÃ  correlation. `raw_reference` luÃ´n trá» vá» 
 | `service_disruption` | Hayabusa, EvtxECmd, RECmd, PECmd |
 | `general_investigation` | Hayabusa, EvtxECmd, PECmd, AmcacheParser, RECmd |
 
-Tool trong profile mÃ´ táº£ pipeline mong muá»‘n; `ToolValidator` váº«n pháº£i xÃ¡c nháº­n
-binary táº¡i thá»i gian cháº¡y.
+Tool trong profile mô tả pipeline mong muốn; `ToolValidator` vẫn phải xác nhận
+binary tại thời gian chạy.
 
-## 9. ThÃªm má»™t tÃ­ch há»£p má»›i
+## 9. Thêm một tích hợp mới
 
-1. ThÃªm definition cÃ³ `schema_version` tÆ°Æ¡ng thÃ­ch vÃ o
+1. Thêm definition có `schema_version` tương thích vào
    `config/tool_integrations.json`.
-2. Táº¡o adapter káº¿ thá»«a `BaseAdapter`; cá»‘ Ä‘á»‹nh artifact type, kiá»ƒm tra input vÃ 
+2. Tạo adapter kế thừa `BaseAdapter`; cố định artifact type, kiểm tra input và
    output glob.
-3. Táº¡o parser káº¿ thá»«a `BaseParser`; Ã¡nh xáº¡ row sang `NormalizedRecord`.
-4. ÄÄƒng kÃ½ adapter/parser táº¡i nÆ¡i Ä‘iá»u phá»‘i tÃ­ch há»£p.
-5. ThÃªm fixture nhá», vÃ´ háº¡i; khÃ´ng commit artifact nháº¡y cáº£m hay binary.
-6. Viáº¿t test cho definition, command, timeout, path traversal, parse row vÃ 
+3. Tạo parser kế thừa `BaseParser`; ánh xạ row sang `NormalizedRecord`.
+4. Đăng ký adapter/parser tại nơi điều phối tích hợp.
+5. Thêm fixture nhỏ, vô hại; không commit artifact nhạy cảm hay binary.
+6. Viết test cho definition, command, timeout, path traversal, parse row và
    workflow end-to-end.
-7. Cáº­p nháº­t investigation profile vÃ  tÃ i liá»‡u nÃ y.
+7. Cập nhật investigation profile và tài liệu này.
 
-## 10. Xá»­ lÃ½ lá»—i
+## 10. Xử lý lỗi
 
-- Exit code khÃ¡c `0`: `ToolRunStatus.FAILED`.
-- VÆ°á»£t timeout: `ToolRunStatus.TIMED_OUT`.
-- KhÃ´ng táº¡o output khá»›p glob: tháº¥t báº¡i dÃ¹ exit code báº±ng `0`.
-- stdout/stderr luÃ´n Ä‘Æ°á»£c lÆ°u Ä‘á»ƒ Ä‘iá»u tra lá»—i, nhÆ°ng khÃ´ng thay tháº¿ evidence.
-- Parser tá»« chá»‘i file format khÃ´ng há»— trá»£ hoáº·c timestamp báº¯t buá»™c bá»‹ thiáº¿u.
-- Má»™t tool tháº¥t báº¡i khÃ´ng lÃ m thay Ä‘á»•i hash cá»§a raw artifact.
-
+- Exit code khác `0`: `ToolRunStatus.FAILED`.
+- Vượt timeout: `ToolRunStatus.TIMED_OUT`.
+- Không tạo output khớp glob: thất bại dù exit code bằng `0`.
+- stdout/stderr luôn được lưu để điều tra lỗi, nhưng không thay thế evidence.
+- Parser từ chối file format không hỗ trợ hoặc timestamp bắt buộc bị thiếu.
+- Một tool thất bại không làm thay đổi hash của raw artifact.

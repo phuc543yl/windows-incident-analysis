@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import os
 import queue
+import socket
+import subprocess
+import sys
 import threading
 import tkinter as tk
 from pathlib import Path
@@ -16,11 +20,13 @@ from common.json_utils import read_json_object
 from evidence.evidence_service import EvidenceService
 from ui.components.status_bar import StatusBar
 from ui.components.toolbar import Toolbar
+from ui.theme import apply_theme
 from ui.controllers import (
     AnalysisController,
     CaseController,
     CollectionController,
     IntegrationController,
+    InvestigateController,
     ReportController,
 )
 from ui.tabs import (
@@ -29,6 +35,8 @@ from ui.tabs import (
     CaseTab,
     CollectionTab,
     EvidenceTab,
+    InvestigateTab,
+    OverviewTab,
     ReportTab,
     TimelineTab,
 )
@@ -60,6 +68,9 @@ class MainWindow:
         ] = queue.Queue()
         self._busy_tasks = 0
         self._closed = False
+        self._agent_process: subprocess.Popen | None = None
+        self._agent_host = "127.0.0.1"
+        self._agent_port = 8765
 
         self.case_controller = CaseController(
             self.project_root,
@@ -84,6 +95,11 @@ class MainWindow:
             self.project_root,
             actor=actor or "analyst",
         )
+        self.investigate_controller = InvestigateController(
+            self.case_controller,
+            self.project_root,
+            actor=actor or "analyst",
+        )
         self.evidence_service = EvidenceService(
             self.project_root,
             actor=actor,
@@ -95,27 +111,13 @@ class MainWindow:
         self._refresh_case_list()
         self.root.protocol("WM_DELETE_WINDOW", self.close)
         self.root.after(100, self._poll_tasks)
+        self.root.after(250, self._ensure_lab_agent)
 
     def _configure_window(self) -> None:
         self.root.title(f"Crow-Eye — {APP_NAME} {APP_VERSION}")
         self.root.geometry("1280x820")
         self.root.minsize(1024, 680)
-        style = ttk.Style(self.root)
-        available = style.theme_names()
-        if "vista" in available:
-            style.theme_use("vista")
-        elif "clam" in available:
-            style.theme_use("clam")
-        style.configure("Toolbar.TFrame", background="#17324d")
-        style.configure(
-            "Toolbar.TLabel",
-            background="#17324d",
-            foreground="#ffffff",
-            font=("Segoe UI", 10, "bold"),
-        )
-        style.configure("Muted.TLabel", foreground="#5c6d7a")
-        style.configure("Treeview", rowheight=25)
-        style.configure("Treeview.Heading", font=("Segoe UI", 9, "bold"))
+        apply_theme(self.root)
 
     def _build_interface(self) -> None:
         self.toolbar = Toolbar(
@@ -129,7 +131,7 @@ class MainWindow:
         self.toolbar.pack(fill=tk.X)
 
         self.notebook = ttk.Notebook(self.root)
-        self.notebook.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
+        self.notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         profiles = self.case_controller.service.profile_service.list_profiles()
         profile_ids = tuple(profile["profile_id"] for profile in profiles)
 
@@ -151,6 +153,7 @@ class MainWindow:
             on_verify=self._verify_evidence,
             on_bundle=self._build_bundle,
         )
+        self.overview_tab = OverviewTab(self.notebook)
         self.analysis_tab = AnalysisTab(
             self.notebook,
             on_process=self._process_raw_data,
@@ -158,10 +161,17 @@ class MainWindow:
             on_refresh=self._refresh_analysis,
             on_set_incident=self._set_incident_status,
         )
+        self.investigate_tab = InvestigateTab(
+            self.notebook,
+            on_add_note=self._add_note,
+            on_save_checklist=self._save_checklist,
+            on_pivot=self._pivot_entity,
+        )
         self.timeline_tab = TimelineTab(self.notebook)
         self.agent_tab = AgentTab(
             self.notebook,
             on_health_check=self._agent_health_check,
+            on_start_agent=self._start_lab_agent,
         )
         self.report_tab = ReportTab(
             self.notebook,
@@ -170,9 +180,11 @@ class MainWindow:
 
         for tab, title in (
             (self.case_tab, "Case"),
+            (self.overview_tab, "Overview"),
             (self.collection_tab, "Collection"),
             (self.evidence_tab, "Evidence"),
             (self.analysis_tab, "Analysis"),
+            (self.investigate_tab, "Investigate"),
             (self.timeline_tab, "Timeline"),
             (self.agent_tab, "Agent"),
             (self.report_tab, "Report"),
@@ -250,6 +262,7 @@ class MainWindow:
             }
         self.analysis_tab.set_results(data)
         self.timeline_tab.set_events(data["timeline"])
+        self._refresh_investigation_views(case_id, data)
 
     def _refresh_case_list(self) -> None:
         self.case_tab.set_cases(self.case_controller.list_cases())
@@ -370,6 +383,11 @@ class MainWindow:
     ) -> None:
         self.analysis_tab.set_results(result)
         self.timeline_tab.set_events(result["timeline"])
+        if self.case_controller.current_case_id:
+            self._refresh_investigation_views(
+                self.case_controller.current_case_id,
+                result,
+            )
         self.status_bar.set_message(
             f"{len(result['findings'])} findings | "
             f"{len(result['alerts'])} alerts | "
@@ -394,6 +412,76 @@ class MainWindow:
         )
         self._refresh_analysis()
 
+    def _refresh_investigation_views(
+        self,
+        case_id: str,
+        analysis: dict[str, Any],
+    ) -> None:
+        try:
+            investigation = self.investigate_controller.load()
+            tool_lines = self.investigate_controller.tool_health()
+        except Exception as exc:
+            investigation = {}
+            tool_lines = (f"Không đọc được investigation: {exc}",)
+        incidents = analysis.get("incidents") or []
+        cia_values = []
+        for incident in incidents:
+            cia_values.extend(incident.get("cia_impacts") or [])
+        context = self.case_controller.current_context or {}
+        case = context.get("case") or {"case_id": case_id}
+        hypothesis = case.get("hypothesis") or case.get("description") or ""
+        next_steps = []
+        if not analysis.get("alerts"):
+            next_steps.append("Chạy xử lý dữ liệu thô rồi phân tích.")
+        else:
+            next_steps.append("Mở tab Investigate để xem story và MITRE.")
+        if not cia_values:
+            next_steps.append("Chưa Confirmed CIA — hoàn thành checklist trước.")
+        next_steps.append("Xuất báo cáo HTML khi đã có kết luận.")
+        self.overview_tab.set_overview(
+            {
+                "case": case,
+                "evidence_count": len(
+                    (self.evidence_tab.table._records if hasattr(self, "evidence_tab") else {})
+                ),
+                "integrity": "đã có manifest"
+                if (self.case_controller.service.repository.paths(case_id).manifest_json.is_file())
+                else "chưa có manifest",
+                "finding_count": len(analysis.get("findings") or []),
+                "alert_count": len(analysis.get("alerts") or []),
+                "incident_count": len(incidents),
+                "cia": ", ".join(str(item) for item in cia_values) or "chưa có",
+                "hypothesis": hypothesis,
+                "tool_lines": tool_lines,
+                "next_steps": tuple(next_steps),
+            }
+        )
+        self.investigate_tab.set_investigation(investigation)
+
+    def _add_note(self, text: str) -> None:
+        self._safe_action(
+            lambda: self.investigate_tab.set_investigation(
+                self.investigate_controller.add_note(text)
+            ),
+            success="Đã lưu ghi chú.",
+        )
+
+    def _save_checklist(self, items: list[dict[str, Any]]) -> None:
+        self._safe_action(
+            lambda: self.investigate_tab.set_investigation(
+                self.investigate_controller.save_checklist(items)
+            ),
+            success="Đã lưu checklist.",
+        )
+
+    def _pivot_entity(self, entity_type: str, value: str) -> None:
+        self._safe_action(
+            lambda: self.investigate_tab.set_pivot_rows(
+                self.investigate_controller.pivot(entity_type, value)
+            ),
+            success=f"Đã lọc {entity_type}={value}.",
+        )
+
     def _generate_report(self, formats: tuple[str, ...]) -> None:
         self._run_background(
             lambda: self.report_controller.generate(formats),
@@ -415,7 +503,69 @@ class MainWindow:
         except JsonFileError as exc:
             self.agent_tab.status_var.set(str(exc))
             return
+        agent = config.get("agent", {})
+        self._agent_host = str(agent.get("host") or "127.0.0.1")
+        self._agent_port = int(agent.get("port") or 8765)
         self.agent_tab.set_configuration(config)
+        self._refresh_agent_env_status()
+
+    def _refresh_agent_env_status(self) -> None:
+        from common.lab_env import describe_agent_token
+
+        self.agent_tab.set_token_status(describe_agent_token())
+
+    def _agent_reachable(self) -> bool:
+        probe = socket.socket()
+        probe.settimeout(0.4)
+        try:
+            return probe.connect_ex((self._agent_host, self._agent_port)) == 0
+        except OSError:
+            return False
+        finally:
+            probe.close()
+
+    def _ensure_lab_agent(self) -> None:
+        if self._closed or self._agent_reachable():
+            return
+        try:
+            self._start_lab_agent()
+        except Exception as exc:
+            self.agent_tab.status_var.set(f"Chưa khởi động được Agent: {exc}")
+
+    def _start_lab_agent(self) -> None:
+        from common.lab_env import load_lab_env
+
+        load_lab_env(self.project_root)
+        self._refresh_agent_env_status()
+        if self._agent_reachable():
+            self.agent_tab.status_var.set("Agent lab đã sẵn sàng.")
+            self.status_bar.set_message("Agent lab đang chạy.")
+            return
+        if self._agent_process is not None and self._agent_process.poll() is None:
+            self.agent_tab.status_var.set("Agent lab đang khởi động...")
+            return
+
+        command = [
+            sys.executable,
+            str(self.project_root / "agent_main.py"),
+            "--host",
+            self._agent_host,
+            "--port",
+            str(self._agent_port),
+        ]
+        creationflags = 0
+        if sys.platform == "win32":
+            creationflags = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
+        self._agent_process = subprocess.Popen(
+            command,
+            cwd=str(self.project_root),
+            env=os.environ.copy(),
+            creationflags=creationflags,
+        )
+        self.agent_tab.status_var.set("Đã mở Agent lab. Hãy kiểm tra kết nối.")
+        self.status_bar.set_message(
+            f"Đã khởi động Agent lab tại {self._agent_host}:{self._agent_port}."
+        )
 
     def _agent_health_check(self) -> None:
         def operation() -> dict[str, Any]:
@@ -502,6 +652,9 @@ class MainWindow:
         if self._closed:
             return
         self._closed = True
+        process = self._agent_process
+        if process is not None and process.poll() is None:
+            process.terminate()
         try:
             self.collection_controller.close()
         finally:

@@ -157,8 +157,8 @@ class LocalClientTests(unittest.TestCase):
         command = run.call_args.args[0]
         options = run.call_args.kwargs
         self.assertEqual(command[0], "powershell.exe")
+        self.assertIn("-EncodedCommand", command)
         self.assertNotIn("Get-Process", command)
-        self.assertIn("Get-Process", options["input"])
         self.assertFalse(options["shell"])
         self.assertEqual(options["timeout"], 10.0)
         self.assertEqual(result.stdout, "Đã thu thập")

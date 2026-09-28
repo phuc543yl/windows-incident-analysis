@@ -1,0 +1,86 @@
+{
+  "ground_truth": {
+    "cia_impacts": [
+      "integrity"
+    ],
+    "expected_alert_count": 2,
+    "expected_incident_type": "log_tampering",
+    "expected_mitre_techniques": [
+      "T1070.001",
+      "T1059.001"
+    ],
+    "expected_rule_ids": [
+      "security_log_cleared",
+      "suspicious_powershell"
+    ]
+  },
+  "profile_id": "log_tampering",
+  "records": [
+    {
+      "artifact_type": "event_logs",
+      "attributes": {
+        "Channel": "Security",
+        "SubjectUserName": "LabAdmin"
+      },
+      "destination_ip": "",
+      "event_id": 4624,
+      "hostname": "WIN8-LAB",
+      "parent_process_id": null,
+      "process_id": null,
+      "process_name": "",
+      "raw_reference": "acquisition/raw/EventLogs/security_log_state_before.json",
+      "record_id": "REC-AF-BASELINE-4624",
+      "source_ip": "",
+      "source_type": "event_log",
+      "summary": "Successful logon before the Security log clear experiment",
+      "timestamp": "2026-08-08T10:01:00.000Z",
+      "user": "WIN8-LAB\\LabAdmin"
+    },
+    {
+      "artifact_type": "processes",
+      "attributes": {
+        "CommandLine": "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command [System.Diagnostics.Eventing.Reader.EventLogSession]::GlobalSession.ClearLog('Security')",
+        "IntegrityLevel": "High"
+      },
+      "destination_ip": "",
+      "event_id": null,
+      "hostname": "WIN8-LAB",
+      "parent_process_id": 2468,
+      "process_id": 3440,
+      "process_name": "powershell.exe",
+      "raw_reference": "acquisition/live/processes.json",
+      "record_id": "REC-AF-PS-CLEAR",
+      "source_ip": "",
+      "source_type": "process",
+      "summary": "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command [System.Diagnostics.Eventing.Reader.EventLogSession]::GlobalSession.ClearLog('Security')",
+      "timestamp": "2026-08-08T10:05:01.000Z",
+      "user": "WIN8-LAB\\LabAdmin"
+    },
+    {
+      "artifact_type": "event_logs",
+      "attributes": {
+        "Channel": "Security",
+        "SubjectDomainName": "WIN8-LAB",
+        "SubjectLogonId": "0x3e7",
+        "SubjectUserName": "LabAdmin"
+      },
+      "destination_ip": "",
+      "event_id": 1102,
+      "hostname": "WIN8-LAB",
+      "parent_process_id": null,
+      "process_id": null,
+      "process_name": "",
+      "raw_reference": "acquisition/raw/EventLogs/security_clear_event_1102.json",
+      "record_id": "REC-AF-EVENT-1102",
+      "source_ip": "",
+      "source_type": "event_log",
+      "summary": "The audit log was cleared by WIN8-LAB\\LabAdmin",
+      "timestamp": "2026-08-08T10:05:04.000Z",
+      "user": "WIN8-LAB\\LabAdmin"
+    }
+  ],
+  "scenario_id": "security_log_anti_forensics",
+  "schema_version": 1,
+  "target_hostname": "WIN8-LAB",
+  "title": "PowerShell Anti-Forensics xóa Security Event Log"
+}

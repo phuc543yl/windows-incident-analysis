@@ -150,3 +150,50 @@ def deterministic_id(
 
 def unique_strings(values: Iterable[str]) -> tuple[str, ...]:
     return tuple(dict.fromkeys(value for value in values if value))
+
+
+def authorized_maintenance(record: NormalizedRecord) -> bool:
+    """True when the record itself marks an approved/change-window action."""
+    flags = (
+        attribute(record, "authorized", "approved", "change_approved"),
+        attribute(record, "maintenance", "in_change_window"),
+    )
+    return any(
+        str(value).strip().casefold() in {"1", "true", "yes", "approved"}
+        for value in flags
+        if value not in (None, "")
+    )
+
+
+def file_hashes(record: NormalizedRecord) -> tuple[str, str]:
+    before = str(
+        attribute(
+            record,
+            "hash_before",
+            "sha256_before",
+            "baseline_sha256",
+            default="",
+        )
+    ).strip().casefold()
+    after = str(
+        attribute(
+            record,
+            "hash_after",
+            "sha256_after",
+            "current_sha256",
+            default="",
+        )
+    ).strip().casefold()
+    return before, after
+
+
+def probe_status(record: NormalizedRecord) -> str:
+    return str(
+        attribute(
+            record,
+            "probe_status",
+            "availability_status",
+            "service_probe",
+            default="",
+        )
+    ).strip().casefold()

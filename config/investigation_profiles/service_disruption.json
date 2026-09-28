@@ -31,7 +31,8 @@
   ],
   "detection_rules": [
     "service_stopped",
-    "service_configuration_changed"
+    "service_configuration_changed",
+    "service_probe_failed"
   ],
   "correlation_profile": "service_disruption"
 }

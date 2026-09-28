@@ -24,7 +24,8 @@ X-Agent-Token: <token từ biến môi trường>
 
 Tên biến môi trường nằm tại `authentication.token_env`. Token không được lưu
 trực tiếp trong file cấu hình trừ khi chế độ cấu hình cho phép rõ ràng; cấu hình
-mặc định yêu cầu biến môi trường.
+mặc định yêu cầu biến môi trường. Các entry point lab nạp `.env.lab` (mẫu
+`config/lab.env.example`) trước khi tạo `AgentClient` hoặc chạy Agent.
 
 Nếu HTTPS tắt, Agent chỉ được phép chạy khi `transport.lab_mode_only` là
 `true`. `allowed_client_ips`, collector allowlist, giới hạn task, timeout, kích

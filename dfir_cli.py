@@ -213,7 +213,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--version",
         action="version",
-        version="Windows Forensic Toolkit 0.1.0",
+        version="Crow-Eye 1.0.0",
     )
     parser.add_argument(
         "--root",
@@ -339,6 +339,9 @@ def _handle_report(args: argparse.Namespace) -> Any:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    from common.lab_env import load_lab_env
+
+    load_lab_env()
     parser = build_parser()
     args = parser.parse_args(argv)
     handler: Callable[[argparse.Namespace], Any] = args.handler

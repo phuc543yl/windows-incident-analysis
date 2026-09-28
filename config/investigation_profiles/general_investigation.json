@@ -45,7 +45,12 @@
     "suspicious_file_execution",
     "security_log_cleared",
     "service_stopped",
-    "service_configuration_changed"
+    "service_configuration_changed",
+    "connection_flood",
+    "event_log_service_shutdown",
+    "powershell_scriptblock_suspicious",
+    "file_integrity_change",
+    "service_probe_failed"
   ],
   "correlation_profile": "general_investigation"
 }

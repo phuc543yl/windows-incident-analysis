@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "scope": "synthetic_reference_cases_only",
+  "scenario_count": 4,
+  "passed_count": 4,
+  "failed_count": 0,
+  "precision": 1.0,
+  "recall": 1.0,
+  "f1_score": 1.0,
+  "timings_included": false,
+  "warning": "Các chỉ số này chỉ xác nhận 4 fixture khớp Ground Truth đã khai báo. Không dùng làm kết quả thực nghiệm luận văn; cần đo lại trên Windows 8 VM với evidence thực tế và tập benign/negative phù hợp.",
+  "scenarios": [
+    {
+      "scenario_id": "dos_availability",
+      "passed": true,
+      "actual_alert_count": 1,
+      "actual_rule_ids": ["connection_flood"]
+    },
+    {
+      "scenario_id": "security_log_anti_forensics",
+      "passed": true,
+      "actual_alert_count": 2,
+      "actual_rule_ids": ["security_log_cleared", "suspicious_powershell"]
+    },
+    {
+      "scenario_id": "scheduled_task_data_integrity",
+      "passed": true,
+      "actual_alert_count": 2,
+      "actual_rule_ids": ["scheduled_task_created", "suspicious_powershell"]
+    },
+    {
+      "scenario_id": "unauthorized_service_disruption",
+      "passed": true,
+      "actual_alert_count": 2,
+      "actual_rule_ids": ["service_configuration_changed", "service_stopped"]
+    }
+  ]
+}

@@ -42,13 +42,12 @@ class SuspiciousPowerShellRule(BaseRule):
         )
         alerts: list[Alert] = []
         for record in self.candidates(records):
-            if (
-                record.process_name.casefold() not in names
-                and record.event_id not in event_ids
-                and "powershell" not in text_blob(record)
-            ):
-                continue
+            process_match = record.process_name.casefold() in names
+            event_match = record.event_id in event_ids
             blob = text_blob(record)
+            if not process_match and not event_match:
+                if "powershell" not in blob:
+                    continue
             hits = tuple(
                 indicator for indicator in indicators if indicator in blob
             )
@@ -60,6 +59,7 @@ class SuspiciousPowerShellRule(BaseRule):
                     findings,
                     details={
                         "indicator_hits": hits,
+                        "high_risk_combo": len(hits) >= 2,
                         "process_name": record.process_name,
                         "process_id": record.process_id,
                         "parent_process_id": record.parent_process_id,

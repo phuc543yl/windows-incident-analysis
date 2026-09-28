@@ -4,7 +4,12 @@ from models.alert import Alert
 from models.finding import Finding
 from models.normalized_record import NormalizedRecord
 from analysis.detection.rules.base_rule import BaseRule
-from analysis.helpers import service_name, text_blob
+from analysis.helpers import (
+    authorized_maintenance,
+    integer_attribute,
+    service_name,
+    text_blob,
+)
 
 
 class ServiceStoppedRule(BaseRule):
@@ -34,10 +39,30 @@ class ServiceStoppedRule(BaseRule):
             str(value).casefold()
             for value in self.parameters.get("service_allowlist", ())
         }
+        require_unauthorized = bool(
+            self.parameters.get("require_unauthorized_context", True)
+        )
+        minimum_downtime = max(
+            0,
+            int(self.parameters.get("minimum_downtime_seconds", 0) or 0),
+        )
         alerts: list[Alert] = []
         for record in self.candidates(records):
             name = service_name(record)
             if name.casefold() in allowlist:
+                continue
+            if require_unauthorized and authorized_maintenance(record):
+                continue
+            downtime = integer_attribute(
+                record,
+                "downtime_seconds",
+                "outage_seconds",
+            )
+            if (
+                downtime is not None
+                and minimum_downtime
+                and downtime < minimum_downtime
+            ):
                 continue
             blob = text_blob(record)
             state_hits = tuple(value for value in states if value in blob)
@@ -52,12 +77,9 @@ class ServiceStoppedRule(BaseRule):
                     details={
                         "service_name": name,
                         "state_hits": state_hits,
-                        "unauthorized_context_required": bool(
-                            self.parameters.get(
-                                "require_unauthorized_context",
-                                True,
-                            )
-                        ),
+                        "unauthorized_context_required": require_unauthorized,
+                        "authorized_maintenance": False,
+                        "downtime_seconds": downtime,
                     },
                     indicator_hits=len(state_hits),
                 )

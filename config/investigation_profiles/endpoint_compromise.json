@@ -45,7 +45,9 @@
     "suspicious_powershell",
     "registry_autorun_change",
     "scheduled_task_created",
-    "suspicious_file_execution"
+    "suspicious_file_execution",
+    "powershell_scriptblock_suspicious",
+    "file_integrity_change"
   ],
   "correlation_profile": "endpoint_compromise"
 }

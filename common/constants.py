@@ -8,9 +8,10 @@ from __future__ import annotations
 
 from typing import Final
 
-APP_NAME: Final = "Windows Incident Analysis Toolkit"
-APP_SHORT_NAME: Final = "WindowsForensicToolkit"
-APP_VERSION: Final = "0.1.0"
+APP_NAME: Final = "Crow-Eye"
+APP_FULL_NAME: Final = "Crow-Eye Windows Incident Analysis Toolkit"
+APP_SHORT_NAME: Final = "CrowEye"
+APP_VERSION: Final = "1.0.0"
 APP_LOGGER_NAME: Final = "windows_forensic"
 
 DEFAULT_ENCODING: Final = "utf-8"

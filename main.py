@@ -26,6 +26,9 @@ def _load_dashboard() -> Callable[[], int | None]:
 def main() -> int:
     """Start the Tkinter dashboard and return a process exit code."""
     try:
+        from common.lab_env import load_lab_env
+
+        load_lab_env()
         run_dashboard = _load_dashboard()
         result = run_dashboard()
         return int(result) if result is not None else 0

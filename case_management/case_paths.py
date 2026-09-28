@@ -116,6 +116,26 @@ class CasePaths:
         return safe_join(self.analysis, "timeline.json")
 
     @property
+    def story_json(self) -> Path:
+        return safe_join(self.analysis, "story.json")
+
+    @property
+    def baseline_diff_json(self) -> Path:
+        return safe_join(self.analysis, "baseline_diff.json")
+
+    @property
+    def mitre_summary_json(self) -> Path:
+        return safe_join(self.analysis, "mitre_summary.json")
+
+    @property
+    def entities_json(self) -> Path:
+        return safe_join(self.analysis, "entities.json")
+
+    @property
+    def checklist_json(self) -> Path:
+        return safe_join(self.analyst, "checklist.json")
+
+    @property
     def analyst(self) -> Path:
         return safe_join(self.root, "analyst")
 

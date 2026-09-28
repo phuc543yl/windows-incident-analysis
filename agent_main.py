@@ -69,6 +69,9 @@ def _create_app(config_path: Path) -> Any:
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Validate settings and run the Agent without Flask's debug reloader."""
+    from common.lab_env import load_lab_env
+
+    load_lab_env()
     parser = build_parser()
     args = parser.parse_args(argv)
 
