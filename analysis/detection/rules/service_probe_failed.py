@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+from analysis.detection.rules.base_rule import BaseRule
+from analysis.helpers import (
+    attribute,
+    integer_attribute,
+    probe_status,
+    service_name,
+    text_blob,
+)
 from models.alert import Alert
 from models.finding import Finding
 from models.normalized_record import NormalizedRecord
-from analysis.detection.rules.base_rule import BaseRule
-from analysis.helpers import probe_status, service_name, text_blob
 
 
 class ServiceProbeFailedRule(BaseRule):
@@ -50,6 +56,21 @@ class ServiceProbeFailedRule(BaseRule):
                     findings,
                     details={
                         "service_name": service_name(record),
+                        "destination_ip": str(
+                            attribute(
+                                record,
+                                "destination_ip",
+                                "target_ip",
+                                "host",
+                                default=record.destination_ip,
+                            )
+                        ).strip(),
+                        "destination_port": integer_attribute(
+                            record, "destination_port", "port", "target_port"
+                        ),
+                        "protocol": str(attribute(record, "protocol"))
+                        .strip()
+                        .casefold(),
                         "probe_status": status or "failed",
                         "availability_impact_requires_confirmation": True,
                     },

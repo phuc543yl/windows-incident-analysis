@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -10,6 +10,7 @@ from case_management.audit_logger import AuditLogger
 from case_management.case_repository import CaseRepository
 from common.exceptions import JsonFileError, ProcessingError
 from common.json_utils import read_json_object, write_json
+from evidence.hash_calculator import HashCalculator
 from models.normalized_record import NormalizedRecord
 from models.timeline_event import TimelineEvent
 from processing.deduplicator import (
@@ -42,16 +43,12 @@ class ProcessingPipeline:
     ) -> None:
         self.repository = CaseRepository(root)
         settings = _processing_settings(self.repository.project)
-        self.deduplicate_records = bool(
-            settings.get("deduplicate_records", True)
-        )
+        self.deduplicate_records = bool(settings.get("deduplicate_records", True))
         self.normalizer = normalizer or RecordNormalizer(
             timestamp_normalizer=TimestampNormalizer(
                 str(settings.get("normalize_timezone", "UTC"))
             ),
-            preserve_raw_values=bool(
-                settings.get("preserve_raw_values", True)
-            ),
+            preserve_raw_values=bool(settings.get("preserve_raw_values", True)),
         )
         self.deduplicator = deduplicator or RecordDeduplicator()
         self.timeline_builder = timeline_builder or TimelineBuilder()
@@ -64,7 +61,10 @@ class ProcessingPipeline:
         records: Iterable[NormalizedRecord | Mapping[str, Any]],
         persist: bool = True,
         deduplicate: bool | None = None,
+        on_progress: Callable[[str], None] | None = None,
     ) -> ProcessingResult:
+        report = on_progress or (lambda _message: None)
+        report("Đang chuẩn hóa định dạng và thời gian bản ghi...")
         case = self.repository.require_open(case_id)
         input_records = tuple(records)
         normalized = self.normalizer.normalize_many(
@@ -72,26 +72,25 @@ class ProcessingPipeline:
             case_id=case.case_id,
         )
         should_deduplicate = (
-            self.deduplicate_records
-            if deduplicate is None
-            else bool(deduplicate)
+            self.deduplicate_records if deduplicate is None else bool(deduplicate)
         )
         if should_deduplicate:
+            report(f"Đang loại bỏ bản ghi trùng trong {len(normalized)} bản ghi...")
             deduplication = self.deduplicator.deduplicate(normalized)
         else:
             deduplication = DeduplicationResult(records=normalized)
+        report("Đang dựng dòng thời gian từ dữ liệu chuẩn hóa...")
         timeline = self.timeline_builder.build(deduplication.records)
 
         records_path: Path | None = None
         timeline_path: Path | None = None
         summary_path: Path | None = None
         if persist:
+            report("Đang lưu dữ liệu chuẩn hóa và dòng thời gian...")
             paths = self.repository.paths(case.case_id)
             records_path = paths.normalized / RECORDS_FILENAME
             timeline_path = paths.timeline_json
-            summary_path = (
-                paths.normalized / PROCESSING_SUMMARY_FILENAME
-            )
+            summary_path = paths.normalized / PROCESSING_SUMMARY_FILENAME
             write_json(
                 records_path,
                 records_envelope(case.case_id, deduplication.records),
@@ -114,7 +113,16 @@ class ProcessingPipeline:
             summary_path=summary_path,
         )
         if persist:
-            write_json(summary_path, result.summary_dict())
+            summary = result.summary_dict()
+            calculator = HashCalculator()
+            summary["records_sha256"] = calculator.calculate(records_path).sha256
+            manifest_path = self.repository.paths(case.case_id).manifest_json
+            summary["source_manifest_sha256"] = (
+                calculator.calculate(manifest_path).sha256
+                if manifest_path.is_file()
+                else None
+            )
+            write_json(summary_path, summary)
             AuditLogger(case.case_id, self.repository.project).log(
                 "processing_completed",
                 actor=self.actor,
@@ -126,6 +134,37 @@ class ProcessingPipeline:
                 },
             )
         return result
+
+    def verify_source_binding(self, case_id: str) -> None:
+        """Reject altered/stale normalized output before using Case data."""
+        paths = self.repository.paths(case_id)
+        try:
+            summary = read_json_object(paths.normalized / PROCESSING_SUMMARY_FILENAME)
+        except JsonFileError as exc:
+            raise ProcessingError("Hãy xử lý dữ liệu thô trước khi phân tích.") from exc
+        if not summary.get("records_sha256") or not summary.get(
+            "source_manifest_sha256"
+        ):
+            raise ProcessingError(
+                "Dữ liệu chuẩn hóa chưa có liên kết SHA-256 với manifest. "
+                "Hãy đăng ký bằng chứng rồi chạy lại Xử lý dữ liệu thô."
+            )
+        calculator = HashCalculator()
+        if (
+            calculator.calculate(paths.normalized / RECORDS_FILENAME).sha256
+            != summary["records_sha256"]
+        ):
+            raise ProcessingError(
+                "Dữ liệu chuẩn hóa đã thay đổi; hãy xử lý dữ liệu thô lại."
+            )
+        if (
+            calculator.calculate(paths.manifest_json).sha256
+            != summary["source_manifest_sha256"]
+        ):
+            raise ProcessingError(
+                "Bằng chứng/manifest đã đổi sau lần xử lý trước. "
+                "Hãy chạy lại Xử lý dữ liệu thô trước khi phân tích."
+            )
 
     def load_records(
         self,
@@ -165,7 +204,5 @@ def _processing_settings(root: Path) -> dict[str, Any]:
         raise ProcessingError(str(exc)) from exc
     processing = settings.get("processing", {})
     if not isinstance(processing, dict):
-        raise ProcessingError(
-            "settings.json phải có processing là object."
-        )
+        raise ProcessingError("settings.json phải có processing là object.")
     return dict(processing)

@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "profile_id": "croweye_lab_agent_network",
+  "name": "CrowEye Lab - Agent Network",
+  "description": "Chup mang truoc tien qua Agent trong luc ket noi HTTP lab con mo.",
+  "hypothesis": "Endpoint lab co nhieu ket noi toi dich vu HTTP 8080; can chup trang thai hien tai.",
+  "default_time_window_hours": 1,
+  "live_collectors": ["network", "system"],
+  "artifact_collectors": [],
+  "required_artifacts": [],
+  "optional_artifacts": [],
+  "tools": ["evtxecmd"],
+  "detection_rules": ["connection_flood"],
+  "correlation_profile": "general_investigation"
+}

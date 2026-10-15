@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from models.alert import Alert
 from analysis.correlation.base import CorrelationMatch
+from analysis.correlation.entities import related_endpoint, shared_entities
+from models.alert import Alert
 
 _ENDPOINT_RULES = {
     "suspicious_powershell",
@@ -24,11 +25,7 @@ class EndpointCompromiseCorrelation:
         alerts: tuple[Alert, ...],
     ) -> tuple[CorrelationMatch, ...]:
         candidates = sorted(
-            (
-                alert
-                for alert in alerts
-                if alert.rule_id in _ENDPOINT_RULES
-            ),
+            (alert for alert in alerts if alert.rule_id in _ENDPOINT_RULES),
             key=lambda item: item.created_at,
         )
         matches: list[CorrelationMatch] = []
@@ -36,16 +33,24 @@ class EndpointCompromiseCorrelation:
         for index, first in enumerate(candidates):
             if first.alert_id in consumed:
                 continue
-            window = tuple(
-                alert
-                for alert in candidates[index:]
-                if alert.created_at - first.created_at
-                <= timedelta(minutes=30)
-            )
+            grouped = [first]
+            for alert in candidates[index + 1 :]:
+                if alert.created_at - first.created_at > timedelta(minutes=30):
+                    break
+                if alert.alert_id in consumed or not related_endpoint(first, alert):
+                    continue
+                known_hosts = {
+                    str(item.details.get("hostname") or "").strip().casefold()
+                    for item in (*grouped, alert)
+                    if str(item.details.get("hostname") or "").strip()
+                }
+                if len(known_hosts) <= 1:
+                    grouped.append(alert)
+            window = tuple(grouped)
             rule_ids = {alert.rule_id for alert in window}
             if len(rule_ids) < 2:
                 continue
-            shared = _shared_entities(window)
+            shared = shared_entities(window)
             consumed.update(alert.alert_id for alert in window)
             matches.append(
                 CorrelationMatch(
@@ -53,7 +58,7 @@ class EndpointCompromiseCorrelation:
                     title="Nghi vấn endpoint bị xâm nhập",
                     description=(
                         "Nhiều dấu hiệu thực thi hoặc persistence xuất "
-                        "hiện gần nhau trong cùng Case."
+                        "hiện gần nhau trên cùng endpoint."
                     ),
                     alerts=window,
                     confidence_score=min(
@@ -71,20 +76,3 @@ class EndpointCompromiseCorrelation:
                 )
             )
         return tuple(matches)
-
-
-def _shared_entities(alerts: tuple[Alert, ...]) -> tuple[str, ...]:
-    values: dict[str, set[str]] = {}
-    for alert in alerts:
-        for key in ("target_user", "source_ip", "hostname", "file_path"):
-            value = str(alert.details.get(key, "")).strip().casefold()
-            if not value:
-                continue
-            values.setdefault(key, set()).add(value)
-    return tuple(
-        sorted(
-            f"{key}:{next(iter(items))}"
-            for key, items in values.items()
-            if len(items) == 1
-        )
-    )

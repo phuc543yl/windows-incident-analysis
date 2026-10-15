@@ -6,15 +6,17 @@ import csv
 import json
 import shutil
 import tempfile
-from time import perf_counter
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from time import perf_counter
+from typing import Any
 
 from analysis.analysis_service import AnalysisService
 from case_management.case_service import CaseService
 from common.json_utils import read_json_object, write_json
 from common.paths import project_root
+from evidence.evidence_service import EvidenceService
 from models.alert import Alert
 from processing.processing_pipeline import ProcessingPipeline
 
@@ -48,7 +50,7 @@ class GroundTruthResult:
     passed: bool
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        return {**asdict(self), "metric_scope": "rule_per_scenario"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,6 +79,7 @@ class GroundTruthSuiteResult:
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
         data["passed"] = self.passed
+        data["metric_scope"] = "rule_per_scenario"
         return data
 
 
@@ -108,13 +111,9 @@ def evaluate_scenario(
         len(false_negatives),
     )
 
-    expected_mitre = _string_set(
-        ground_truth.get("expected_mitre_techniques")
-    )
+    expected_mitre = _string_set(ground_truth.get("expected_mitre_techniques"))
     detected_mitre = {
-        technique
-        for alert in alert_items
-        for technique in alert.mitre_techniques
+        technique for alert in alert_items for technique in alert.mitre_techniques
     }
     missing_mitre = expected_mitre - detected_mitre
     expected_alert_count = _non_negative_int(
@@ -210,6 +209,10 @@ def run_ground_truth_suite(
                 profile_id=scenario["profile_id"],
             )
             paths = CaseService(lab_root).repository.paths(case.case_id)
+            write_json(paths.raw / "Files" / "ground_truth_input.json", scenario)
+            EvidenceService(lab_root, actor="ground-truth-experiment").preserve_case(
+                case.case_id
+            )
             processing_started = perf_counter()
             processing = ProcessingPipeline(
                 lab_root,
@@ -283,6 +286,7 @@ def write_ground_truth_results(
         "timeline_size_bytes",
         "analysis_result_size_bytes",
         "case_size_bytes",
+        "metric_scope",
     )
     with csv_path.open("w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
@@ -309,6 +313,7 @@ def write_ground_truth_results(
                     "timeline_size_bytes": item.timeline_size_bytes,
                     "analysis_result_size_bytes": item.analysis_result_size_bytes,
                     "case_size_bytes": item.case_size_bytes,
+                    "metric_scope": "rule_per_scenario",
                 }
             )
     return json_path, csv_path
@@ -367,9 +372,7 @@ def _metrics(tp: int, fp: int, fn: int) -> tuple[float, float, float]:
     precision = tp / (tp + fp) if tp + fp else 0.0
     recall = tp / (tp + fn) if tp + fn else 0.0
     f1_score = (
-        2 * precision * recall / (precision + recall)
-        if precision + recall
-        else 0.0
+        2 * precision * recall / (precision + recall) if precision + recall else 0.0
     )
     return precision, recall, f1_score
 

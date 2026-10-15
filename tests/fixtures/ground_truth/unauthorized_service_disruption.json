@@ -66,6 +66,7 @@
         "ChangeApproved": false,
         "param1": "CrowEyeLabService",
         "param2": "stopped",
+        "downtime_seconds": 120,
         "service_name": "CrowEyeLabService"
       },
       "destination_ip": "",

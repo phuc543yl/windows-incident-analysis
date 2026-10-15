@@ -8,7 +8,7 @@ from pathlib import Path
 
 from analysis.analysis_service import AnalysisService
 from case_management.case_service import CaseService
-from common.enums import ArtifactType, ToolRunStatus
+from common.enums import ToolRunStatus
 from common.exceptions import ToolIntegrationError
 from common.json_utils import write_json
 from integrations.integration_service import IntegrationService
@@ -66,9 +66,7 @@ class FakeAdapter:
                 timestamp="2026-07-29T08:00:00Z",
                 summary=f"Output from {self.tool_id}",
                 hostname=hostname,
-                raw_reference=(
-                    f"analysis/tool_outputs/{self.tool_id}/output.csv"
-                ),
+                raw_reference=(f"analysis/tool_outputs/{self.tool_id}/output.csv"),
             ),
         )
 
@@ -87,9 +85,7 @@ class IntegrationServiceTests(unittest.TestCase):
             target_hostname="WIN-LAB01",
             profile_id="account_compromise",
         )
-        self.paths = CaseService(self.temp_path).repository.paths(
-            self.case.case_id
-        )
+        self.paths = CaseService(self.temp_path).repository.paths(self.case.case_id)
         self.adapters: dict[str, FakeAdapter] = {}
 
     def factory(self, definition, runner):
@@ -98,9 +94,7 @@ class IntegrationServiceTests(unittest.TestCase):
         return adapter
 
     def seed_event_log(self) -> Path:
-        path = (
-            self.paths.raw_artifact_dir("event_logs") / "Security.evtx"
-        )
+        path = self.paths.raw_artifact_dir("event_logs") / "Security.evtx"
         path.write_bytes(b"synthetic evtx")
         return path
 
@@ -146,9 +140,7 @@ class IntegrationServiceTests(unittest.TestCase):
         self.assertTrue(result.records_path.is_file())
         self.assertTrue(result.timeline_path.is_file())
         self.assertFalse(self.adapters["evtxecmd"].verify_integrity)
-        records = ProcessingPipeline(self.temp_path).load_records(
-            self.case.case_id
-        )
+        records = ProcessingPipeline(self.temp_path).load_records(self.case.case_id)
         self.assertEqual(records[0].hostname, "WIN-LAB01")
 
     def test_process_case_uses_profile_tools(self) -> None:
@@ -171,9 +163,55 @@ class IntegrationServiceTests(unittest.TestCase):
         )
         self.assertEqual(result.parsed_record_count, 2)
 
+    def test_progress_reports_tools_skips_pipeline_and_completion(self) -> None:
+        self.seed_event_log()
+        messages = []
+        result = IntegrationService(
+            self.temp_path,
+            adapter_factory=self.factory,
+        ).process_case(
+            self.case.case_id,
+            tool_ids=("evtxecmd", "pecmd"),
+            verify_integrity=False,
+            on_progress=messages.append,
+        )
+
+        self.assertEqual(result.succeeded_tools, ("evtxecmd",))
+        self.assertEqual(result.skipped_tools, ("pecmd",))
+        self.assertTrue(any("Công cụ 1/2: evtxecmd" in msg for msg in messages))
+        self.assertTrue(any("Bỏ qua: pecmd" in msg for msg in messages))
+        self.assertTrue(any("loại bỏ bản ghi trùng" in msg for msg in messages))
+        self.assertTrue(any("lưu dữ liệu chuẩn hóa" in msg for msg in messages))
+        self.assertIn("1 cảnh báo", messages[-1])
+
+    def test_failed_tool_reports_error_without_false_completion(self) -> None:
+        self.seed_event_log()
+        messages = []
+        service = IntegrationService(
+            self.temp_path,
+            adapter_factory=lambda definition, runner: FakeAdapter(
+                definition,
+                runner,
+                status=ToolRunStatus.FAILED,
+            ),
+        )
+        with self.assertRaises(ToolIntegrationError):
+            service.process_case(
+                self.case.case_id,
+                tool_ids=("evtxecmd",),
+                verify_integrity=False,
+                on_progress=messages.append,
+            )
+
+        self.assertTrue(any("Thất bại: evtxecmd" in msg for msg in messages))
+        self.assertFalse(any("Xử lý hoàn tất" in msg for msg in messages))
+
     def test_process_case_merges_live_data_with_tool_records(self) -> None:
         self.seed_event_log()
         self.seed_live_process()
+        from evidence.evidence_service import EvidenceService
+
+        EvidenceService(self.temp_path).preserve_case(self.case.case_id)
         result = IntegrationService(
             self.temp_path,
             adapter_factory=self.factory,
@@ -186,9 +224,7 @@ class IntegrationServiceTests(unittest.TestCase):
         self.assertEqual(result.live_record_count, 1)
         self.assertEqual(result.parsed_record_count, 2)
         self.assertEqual(result.normalized_count, 2)
-        records = ProcessingPipeline(self.temp_path).load_records(
-            self.case.case_id
-        )
+        records = ProcessingPipeline(self.temp_path).load_records(self.case.case_id)
         live = next(
             record for record in records if record.source_type == "live_process"
         )

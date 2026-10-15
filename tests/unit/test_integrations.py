@@ -3,11 +3,14 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import sys
 import tempfile
+import textwrap
 import unittest
 from dataclasses import replace
+from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 from case_management.case_service import CaseService
 from common.enums import ArtifactType, ToolRunStatus
@@ -70,9 +73,7 @@ class ToolRegistryTests(IntegrationTestCase):
         self.assertEqual(
             {
                 item.tool_id
-                for item in self.registry.for_artifact(
-                    ArtifactType.EVENT_LOGS
-                )
+                for item in self.registry.for_artifact(ArtifactType.EVENT_LOGS)
             },
             {"hayabusa", "evtxecmd"},
         )
@@ -105,8 +106,9 @@ class ToolRegistryTests(IntegrationTestCase):
 
     def test_registry_rejects_duplicate_tool_id(self) -> None:
         config = json.loads(
-            (self.temp_path / "config" / "tool_integrations.json")
-            .read_text(encoding="utf-8")
+            (self.temp_path / "config" / "tool_integrations.json").read_text(
+                encoding="utf-8"
+            )
         )
         config["tools"].append(dict(config["tools"][0]))
         path = self.temp_path / "duplicate-tools.json"
@@ -288,6 +290,65 @@ class ToolRunnerTests(IntegrationTestCase):
 
 
 class AdapterTests(IntegrationTestCase):
+    def test_hayabusa_runs_and_parses_output_without_a_terminal(self) -> None:
+        source = self.paths.raw_artifact_dir("event_logs") / "EVTX with spaces"
+        source.mkdir()
+        (source / "Security.evtx").write_bytes(b"test input")
+        tool_double = self.temp_path / "hayabusa_double.py"
+        # Model the default Scan Wizard's terminal requirement in a real child
+        # process, keeping ToolRunner's captured output and argument handling.
+        tool_double.write_text(
+            textwrap.dedent(
+                r"""
+                import sys
+                from pathlib import Path
+
+                if "--no-wizard" not in sys.argv and not sys.stdout.isatty():
+                    print("not a terminal", file=sys.stderr)
+                    sys.exit(1)
+                if sys.argv[sys.argv.index("--profile") + 1] != "verbose":
+                    print("missing source event identity", file=sys.stderr)
+                    sys.exit(2)
+                output = Path(sys.argv[sys.argv.index("-o") + 1])
+                output.write_text(
+                    "Timestamp,RuleTitle,Computer,EventID,RecordID,Channel,EvtxFile\n"
+                    "2026-07-29T10:00:00Z,Suspicious logon,WIN-1,4624,42,Sec,Security.evtx\n",
+                    encoding="utf-8",
+                )
+                print(f"stdout_is_terminal={sys.stdout.isatty()}")
+                """
+            ),
+            encoding="utf-8",
+        )
+        adapter = create_adapter(self.registry.get("hayabusa"), self.runner)
+        real_run = subprocess.run
+
+        def run_without_terminal(command, **kwargs):
+            return real_run(
+                [sys.executable, str(tool_double), *command[1:]],
+                **kwargs,
+            )
+
+        with patch(
+            "integrations.tool_runner.subprocess.run",
+            side_effect=run_without_terminal,
+        ):
+            result = adapter.run(
+                case_id=self.case.case_id,
+                input_paths=(source,),
+                verify_integrity=False,
+            )
+
+        self.assertEqual(result.status, ToolRunStatus.SUCCEEDED, result.error_message)
+        stdout = (self.paths.root / result.stdout_path).read_text(encoding="utf-8")
+        self.assertIn("stdout_is_terminal=False", stdout)
+        records = adapter.parse(result)
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0].hostname, "WIN-1")
+        self.assertEqual(records[0].event_id, 4624)
+        self.assertEqual(records[0].attributes["event_record_id"], 42)
+        self.assertEqual(records[0].attributes["source_event_file"], "Security.evtx")
+
     def test_factory_builds_all_configured_adapters(self) -> None:
         for definition in self.registry.list():
             with self.subTest(tool_id=definition.tool_id):
@@ -399,19 +460,37 @@ class AdapterTests(IntegrationTestCase):
 
 
 class ParserTests(IntegrationTestCase):
+    def test_hayabusa_parses_spaced_timezone_offsets_and_preserves_source_text(
+        self,
+    ) -> None:
+        cases = (
+            "2026-10-07 16:25:43.932 +00:00",
+            "2026-10-07 23:25:43.932 +07:00",
+            "2026-10-07 11:25:43.932 -05:00",
+        )
+        expected = datetime(2026, 10, 7, 16, 25, 43, 932000, tzinfo=timezone.utc)
+        for timestamp in cases:
+            with self.subTest(timestamp=timestamp):
+                path = self.temp_path / "hayabusa.csv"
+                path.write_text(
+                    f"Timestamp,RuleTitle\n{timestamp},Rule A\n",
+                    encoding="utf-8",
+                )
+                records = HayabusaParser().parse(path, case_id=self.case.case_id)
+                self.assertEqual(records[0].timestamp, expected)
+                self.assertEqual(records[0].attributes["Timestamp"], timestamp)
+
     def test_all_parsers_map_representative_csv_rows(self) -> None:
         cases = (
             (
                 HayabusaParser(),
-                "Timestamp,RuleTitle,EventID\n"
-                "2026-07-29T01:00:00Z,Rule A,4624\n",
+                "Timestamp,RuleTitle,EventID\n2026-07-29T01:00:00Z,Rule A,4624\n",
                 ArtifactType.EVENT_LOGS,
                 "Rule A",
             ),
             (
                 EvtxECmdParser(),
-                "TimeCreated,Provider,EventId\n"
-                "2026-07-29T02:00:00Z,Security,4688\n",
+                "TimeCreated,Provider,EventId\n2026-07-29T02:00:00Z,Security,4688\n",
                 ArtifactType.EVENT_LOGS,
                 "Security event 4688",
             ),
@@ -465,8 +544,7 @@ class ParserTests(IntegrationTestCase):
     def test_parser_supports_utf16_csv(self) -> None:
         path = self.temp_path / "utf16.csv"
         path.write_text(
-            "Timestamp,RuleTitle\n"
-            "2026-07-29T07:00:00Z,Unicode rule\n",
+            "Timestamp,RuleTitle\n2026-07-29T07:00:00Z,Unicode rule\n",
             encoding="utf-16",
         )
 

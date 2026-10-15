@@ -3,11 +3,12 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import timedelta
 
+from analysis.detection.event_identity import group_windows_events
+from analysis.detection.rules.base_rule import BaseRule
+from analysis.helpers import source_ip, target_user
 from models.alert import Alert
 from models.finding import Finding
 from models.normalized_record import NormalizedRecord
-from analysis.detection.rules.base_rule import BaseRule
-from analysis.helpers import source_ip, target_user
 
 
 class FailedLogonBurstRule(BaseRule):
@@ -22,10 +23,7 @@ class FailedLogonBurstRule(BaseRule):
         records: tuple[NormalizedRecord, ...],
         findings: tuple[Finding, ...] = (),
     ) -> tuple[Alert, ...]:
-        event_ids = {
-            int(value)
-            for value in self.parameters.get("event_ids", (4625,))
-        }
+        event_ids = {int(value) for value in self.parameters.get("event_ids", (4625,))}
         threshold = max(2, int(self.parameters.get("threshold", 5)))
         window = timedelta(
             minutes=max(
@@ -39,11 +37,15 @@ class FailedLogonBurstRule(BaseRule):
         ] = defaultdict(list)
         for record in self.candidates(records):
             if record.event_id in event_ids:
+                if not record.hostname.strip() or not (
+                    target_user(record) or source_ip(record)
+                ):
+                    continue
                 groups[
                     (
                         target_user(record).casefold(),
                         source_ip(record).casefold(),
-                        record.hostname.casefold(),
+                        record.hostname.strip().casefold(),
                     )
                 ].append(record)
 
@@ -60,19 +62,22 @@ class FailedLogonBurstRule(BaseRule):
                 else:
                     episodes[-1].append(record)
             for episode in episodes:
-                if len(episode) < threshold:
+                events = [group[0] for group in group_windows_events(episode)]
+                if len(events) < threshold:
                     continue
-                if not _contains_threshold_window(episode, threshold, window):
+                if not _contains_threshold_window(events, threshold, window):
                     continue
                 alerts.append(
                     self.alert(
                         episode,
                         findings,
+                        risk_record_count=len(events),
                         details={
                             "target_user": group_key[0],
                             "source_ip": group_key[1],
                             "hostname": group_key[2],
-                            "failure_count": len(episode),
+                            "failure_count": len(events),
+                            "source_record_count": len(episode),
                             "window_minutes": window.total_seconds() / 60,
                             "episode_start": episode[0].timestamp,
                             "episode_end": episode[-1].timestamp,

@@ -48,9 +48,9 @@ class SyntheticLiveCollector(BaseCollector):
         if self.collector_id == "system":
             return CollectorOutput(
                 data=json.loads(
-                    (
-                        SAMPLE_EVIDENCE / "live" / "system.json"
-                    ).read_text(encoding="utf-8")
+                    (SAMPLE_EVIDENCE / "live" / "system.json").read_text(
+                        encoding="utf-8"
+                    )
                 )
             )
         return CollectorOutput(
@@ -74,20 +74,10 @@ class SyntheticArtifactCollector(BaseCollector):
     def collect(self, client, destination, options):
         del client, options
         if self.collector_id == "event_logs":
-            source = (
-                SAMPLE_EVIDENCE
-                / "raw"
-                / "EventLogs"
-                / "Security.evtx.sample"
-            )
+            source = SAMPLE_EVIDENCE / "raw" / "EventLogs" / "Security.evtx.sample"
             output = destination / "Security.evtx"
         else:
-            source = (
-                SAMPLE_EVIDENCE
-                / "raw"
-                / "FirewallLogs"
-                / "pfirewall.log"
-            )
+            source = SAMPLE_EVIDENCE / "raw" / "FirewallLogs" / "pfirewall.log"
             output = destination / "pfirewall.log"
         shutil.copyfile(source, output)
         return CollectorOutput(files=(output,))
@@ -144,13 +134,10 @@ class LocalWorkflowTests(unittest.TestCase):
         self.assertTrue(all(result.succeeded for result in results))
         self.assertTrue((self.paths.live / "system.json").is_file())
         self.assertTrue(
-            (
-                self.paths.raw_artifact_dir("event_logs")
-                / "Security.evtx"
-            ).is_file()
+            (self.paths.raw_artifact_dir("event_logs") / "Security.evtx").is_file()
         )
 
-        manifest = self.evidence.preserve_case(self.case.case_id)
+        manifest = self.evidence.ensure_preserved(self.case.case_id)
         verification = self.evidence.verify_case(self.case.case_id)
         bundle = self.evidence.build_bundle(
             self.case.case_id,
@@ -169,12 +156,10 @@ class LocalWorkflowTests(unittest.TestCase):
 
     def test_workflow_keeps_every_output_inside_case(self) -> None:
         self.collection.collect_case(self.case.case_id)
-        manifest = self.evidence.preserve_case(self.case.case_id)
+        manifest = self.evidence.ensure_preserved(self.case.case_id)
 
         for item in manifest["evidence_items"]:
-            resolved = (
-                self.paths.root / item["stored_path"]
-            ).resolve()
+            resolved = (self.paths.root / item["stored_path"]).resolve()
             resolved.relative_to(self.paths.root)
             self.assertTrue(resolved.is_file())
         self.assertTrue(

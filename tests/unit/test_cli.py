@@ -12,6 +12,18 @@ import dfir_cli
 
 
 class CliTests(unittest.TestCase):
+    def test_preserve_without_rebuild_keeps_existing_hash_reference(self) -> None:
+        service = Mock()
+        service.ensure_preserved.return_value = {"item_count": 1}
+        code, output, error, _ = self.run_cli(
+            ["preserve", "CASE-20260729-001"], service
+        )
+        self.assertEqual(code, dfir_cli.EXIT_OK)
+        self.assertEqual(error, "")
+        self.assertEqual(json.loads(output)["item_count"], 1)
+        service.ensure_preserved.assert_called_once_with("CASE-20260729-001")
+        service.preserve_case.assert_not_called()
+
     def run_cli(self, argv, service):
         stdout = io.StringIO()
         stderr = io.StringIO()
@@ -103,9 +115,7 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(code, dfir_cli.EXIT_OK)
         self.assertEqual(json.loads(output)["alert_count"], 3)
-        service.analyze.assert_called_once_with(
-            case_id="CASE-20260729-001"
-        )
+        service.analyze.assert_called_once_with(case_id="CASE-20260729-001")
 
     def test_report_calls_generate_with_default_formats(self) -> None:
         service = Mock()

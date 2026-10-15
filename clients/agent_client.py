@@ -6,7 +6,7 @@ import hashlib
 import os
 import re
 import time
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote, urlparse
@@ -16,6 +16,7 @@ try:
 except ModuleNotFoundError:  # Local Mode remains usable before dependencies.
     requests = None
 
+from clients.base_client import BaseClient
 from common.enums import OperationMode
 from common.exceptions import (
     ClientConnectionError,
@@ -24,7 +25,6 @@ from common.exceptions import (
     IntegrityVerificationError,
 )
 from common.json_utils import read_json_object
-from clients.base_client import BaseClient
 from models.collection_plan import CollectionPlan
 
 _TERMINAL_SUCCESS_STATES = {"completed", "succeeded", "success"}
@@ -99,9 +99,7 @@ class AgentClient(BaseClient):
         return cls(
             f"{scheme}://{host}:{port}",
             token=token,
-            token_header=str(
-                authentication.get("token_header", "X-Agent-Token")
-            ),
+            token_header=str(authentication.get("token_header", "X-Agent-Token")),
             timeout_seconds=timeout,
             session=session,
         )
@@ -117,9 +115,7 @@ class AgentClient(BaseClient):
         mode = payload.get("mode")
         mode_value = mode.value if isinstance(mode, OperationMode) else mode
         if mode_value != OperationMode.AGENT.value:
-            raise ValueError(
-                "AgentClient chỉ nhận Collection Plan ở Agent Mode."
-            )
+            raise ValueError("AgentClient chỉ nhận Collection Plan ở Agent Mode.")
         response = self._request_json(
             "POST",
             "/api/v1/tasks",
@@ -143,6 +139,7 @@ class AgentClient(BaseClient):
         *,
         poll_interval_seconds: int | float = 1,
         max_wait_seconds: int | float | None = None,
+        on_progress: Callable[[str], None] | None = None,
     ) -> dict[str, Any]:
         poll_interval = self.validate_timeout(poll_interval_seconds)
         max_wait = (
@@ -151,22 +148,28 @@ class AgentClient(BaseClient):
             else self.validate_timeout(max_wait_seconds)
         )
         deadline = time.monotonic() + max_wait
+        last_message = None
 
         while True:
             task = self.get_task(task_id)
             state = str(task.get("status", "")).strip().lower()
+            if on_progress is not None:
+                raw_detail = str(task.get("progress_message") or "")
+                detail = _safe_response_text(raw_detail) if raw_detail else ""
+                message = f"Agent {task_id}: {state}" + (
+                    f" — {detail}" if detail else ""
+                )
+                if message != last_message:
+                    on_progress(message)
+                    last_message = message
             if state in _TERMINAL_SUCCESS_STATES:
                 return task
             if state in _TERMINAL_FAILURE_STATES:
                 message = _safe_response_text(str(task.get("error", state)))
-                raise ClientError(
-                    f"Agent task {task_id} thất bại: {message}"
-                )
+                raise ClientError(f"Agent task {task_id} thất bại: {message}")
             remaining = deadline - time.monotonic()
             if remaining <= 0:
-                raise ClientConnectionError(
-                    f"Hết thời gian chờ Agent task {task_id}."
-                )
+                raise ClientConnectionError(f"Hết thời gian chờ Agent task {task_id}.")
             time.sleep(min(poll_interval, remaining))
 
     def download_bundle(
@@ -180,13 +183,9 @@ class AgentClient(BaseClient):
         normalized_id = _require_identifier(task_id, "task_id")
         destination_path = Path(destination).expanduser().resolve()
         if destination_path.exists() and not overwrite:
-            raise FileExistsError(
-                f"Evidence Bundle đã tồn tại: {destination_path}"
-            )
+            raise FileExistsError(f"Evidence Bundle đã tồn tại: {destination_path}")
         expected_hash = _normalize_sha256(expected_sha256)
-        endpoint = (
-            f"/api/v1/tasks/{quote(normalized_id, safe='')}/bundle"
-        )
+        endpoint = f"/api/v1/tasks/{quote(normalized_id, safe='')}/bundle"
 
         try:
             response = self.session.get(
@@ -202,13 +201,10 @@ class AgentClient(BaseClient):
         self._raise_for_status(response)
 
         header_hash = _normalize_sha256(
-            response.headers.get("X-Content-SHA256")
-            or response.headers.get("X-SHA256")
+            response.headers.get("X-Content-SHA256") or response.headers.get("X-SHA256")
         )
         required_hash = expected_hash or header_hash
-        temporary_path = destination_path.with_name(
-            f".{destination_path.name}.part"
-        )
+        temporary_path = destination_path.with_name(f".{destination_path.name}.part")
         digest = hashlib.sha256()
 
         try:
@@ -272,13 +268,9 @@ class AgentClient(BaseClient):
             return
         message = _safe_response_text(response.text, secret=self.token)
         error_type = (
-            ClientConnectionError
-            if response.status_code >= 500
-            else ClientError
+            ClientConnectionError if response.status_code >= 500 else ClientError
         )
-        raise error_type(
-            f"Agent HTTP {response.status_code}: {message}"
-        )
+        raise error_type(f"Agent HTTP {response.status_code}: {message}")
 
 
 def _plan_payload(

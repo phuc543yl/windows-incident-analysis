@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -25,12 +26,14 @@ class CollectionController:
         *,
         mode: str | None = None,
         agent_id: str | None = None,
+        on_progress: Callable[[str], None] | None = None,
     ) -> tuple[dict[str, Any], ...]:
         case_id = self.case_controller.require_case_id()
         results = self.service.collect_case(
             case_id,
             mode=mode,
             agent_id=agent_id,
+            **({"on_progress": on_progress} if on_progress is not None else {}),
         )
         return tuple(result.to_dict() for result in results)
 
@@ -39,12 +42,9 @@ class CollectionController:
         results: tuple[dict[str, Any], ...],
     ) -> dict[str, int]:
         succeeded = sum(
-            result.get("status") in {"succeeded", "partial"}
-            for result in results
+            result.get("status") in {"succeeded", "partial"} for result in results
         )
-        failed = sum(
-            result.get("status") == "failed" for result in results
-        )
+        failed = sum(result.get("status") == "failed" for result in results)
         return {
             "total": len(results),
             "succeeded": succeeded,

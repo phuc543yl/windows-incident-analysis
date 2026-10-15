@@ -65,9 +65,7 @@ class FakeSession:
         self.closed = False
 
     def request(self, method: str, url: str, **kwargs):
-        self.request_calls.append(
-            {"method": method, "url": url, **kwargs}
-        )
+        self.request_calls.append({"method": method, "url": url, **kwargs})
         return self.request_responses.pop(0)
 
     def get(self, url: str, **kwargs):
@@ -310,9 +308,7 @@ class AgentClientTests(unittest.TestCase):
 
     def test_health_check_sends_token_header_and_timeout(self) -> None:
         session = FakeSession(
-            request_responses=(
-                FakeResponse(payload={"status": "ok"}),
-            )
+            request_responses=(FakeResponse(payload={"status": "ok"}),)
         )
         client = self.make_client(session)
 
@@ -327,19 +323,13 @@ class AgentClientTests(unittest.TestCase):
 
     def test_submit_collection_accepts_only_agent_plan(self) -> None:
         session = FakeSession(
-            request_responses=(
-                FakeResponse(payload={"task_id": "TASK-001"}),
-            )
+            request_responses=(FakeResponse(payload={"task_id": "TASK-001"}),)
         )
         client = self.make_client(session)
 
         with self.assertRaisesRegex(ValueError, "Agent Mode"):
-            client.submit_collection(
-                {"case_id": "CASE-1", "mode": "local"}
-            )
-        task_id = client.submit_collection(
-            {"case_id": "CASE-1", "mode": "agent"}
-        )
+            client.submit_collection({"case_id": "CASE-1", "mode": "local"})
+        task_id = client.submit_collection({"case_id": "CASE-1", "mode": "agent"})
 
         self.assertEqual(task_id, "TASK-001")
         payload = session.request_calls[0]["json"]
@@ -351,9 +341,7 @@ class AgentClientTests(unittest.TestCase):
     def test_get_task_escapes_task_id_in_url(self) -> None:
         session = FakeSession(
             request_responses=(
-                FakeResponse(
-                    payload={"task_id": "TASK/001", "status": "running"}
-                ),
+                FakeResponse(payload={"task_id": "TASK/001", "status": "running"}),
             )
         )
         client = self.make_client(session)
@@ -362,9 +350,7 @@ class AgentClientTests(unittest.TestCase):
 
         self.assertEqual(result["status"], "running")
         self.assertTrue(
-            session.request_calls[0]["url"].endswith(
-                "/api/v1/tasks/TASK%2F001"
-            )
+            session.request_calls[0]["url"].endswith("/api/v1/tasks/TASK%2F001")
         )
 
     def test_wait_for_task_returns_completed_task(self) -> None:
@@ -402,6 +388,31 @@ class AgentClientTests(unittest.TestCase):
                 "Collector failed",
             ):
                 client.wait_for_task("TASK-1")
+
+    def test_wait_for_task_reports_changed_progress_and_supports_older_agents(
+        self,
+    ) -> None:
+        client = self.make_client(FakeSession())
+        messages = []
+        responses = [
+            {"status": "queued"},
+            {"status": "running", "progress_message": "Collector 1/2: system..."},
+            {"status": "running", "progress_message": "Collector 1/2: system..."},
+            {"status": "running", "progress_message": "Collector 2/2: event_logs..."},
+            {"status": "completed"},
+        ]
+        with (
+            patch.object(client, "get_task", side_effect=responses),
+            patch("clients.agent_client.time.sleep"),
+        ):
+            result = client.wait_for_task("TASK-1", on_progress=messages.append)
+
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(len(messages), 4)
+        self.assertTrue(messages[0].endswith("queued"))
+        self.assertIn("Collector 1/2: system", messages[1])
+        self.assertIn("Collector 2/2: event_logs", messages[2])
+        self.assertTrue(messages[-1].endswith("completed"))
 
     def test_wait_for_task_reports_timeout(self) -> None:
         session = FakeSession()
@@ -448,23 +459,15 @@ class AgentClientTests(unittest.TestCase):
 
         self.assertEqual(result, destination.resolve())
         self.assertEqual(destination.read_bytes(), content)
-        self.assertFalse(
-            (destination.parent / ".evidence.zip.part").exists()
-        )
+        self.assertFalse((destination.parent / ".evidence.zip.part").exists())
         self.assertTrue(
-            session.download_calls[0]["url"].endswith(
-                "/api/v1/tasks/TASK-1/bundle"
-            )
+            session.download_calls[0]["url"].endswith("/api/v1/tasks/TASK-1/bundle")
         )
 
     def test_download_bundle_removes_partial_file_on_hash_mismatch(
         self,
     ) -> None:
-        session = FakeSession(
-            download_responses=(
-                FakeResponse(chunks=(b"tampered",)),
-            )
-        )
+        session = FakeSession(download_responses=(FakeResponse(chunks=(b"tampered",)),))
         client = self.make_client(session)
         destination = self.temp_path / "evidence.zip"
 
@@ -476,9 +479,7 @@ class AgentClientTests(unittest.TestCase):
             )
 
         self.assertFalse(destination.exists())
-        self.assertFalse(
-            (destination.parent / ".evidence.zip.part").exists()
-        )
+        self.assertFalse((destination.parent / ".evidence.zip.part").exists())
 
     def test_http_error_redacts_token_from_exception(self) -> None:
         session = FakeSession(
@@ -498,11 +499,7 @@ class AgentClientTests(unittest.TestCase):
         self.assertIn("***", str(raised.exception))
 
     def test_invalid_agent_json_is_reported(self) -> None:
-        session = FakeSession(
-            request_responses=(
-                FakeResponse(json_error=True),
-            )
-        )
+        session = FakeSession(request_responses=(FakeResponse(json_error=True),))
         client = self.make_client(session)
 
         with self.assertRaisesRegex(ClientError, "JSON không hợp lệ"):

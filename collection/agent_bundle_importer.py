@@ -14,6 +14,7 @@ from case_management.case_repository import CaseRepository
 from common.exceptions import CollectionError
 from evidence.bundle_reader import BundleReader
 from evidence.hash_calculator import HashCalculator
+from evidence.integrity_verifier import IntegrityVerifier
 from evidence.manifest_builder import ManifestBuilder
 from models.evidence_item import EvidenceItem
 from models.evidence_manifest import EvidenceManifest
@@ -61,6 +62,8 @@ class AgentBundleImporter:
     ) -> AgentBundleImportResult:
         case = self.repository.require_open(case_id)
         paths = self.repository.paths(case.case_id)
+        if paths.manifest_json.exists():
+            IntegrityVerifier(case.case_id, self.repository.project).verify()
         reader = BundleReader(bundle_path)
         verification = reader.verify(expected_sha256=expected_sha256)
         raw_manifest = reader.read_manifest()
@@ -71,9 +74,7 @@ class AgentBundleImporter:
                 f"Schema manifest của Agent không hợp lệ: {exc}"
             ) from exc
         if manifest.case_id != case.case_id:
-            raise CollectionError(
-                "Agent Bundle không khớp Case đang thu thập."
-            )
+            raise CollectionError("Agent Bundle không khớp Case đang thu thập.")
         if not manifest.evidence_items:
             raise CollectionError(
                 "Manifest của Agent Bundle không có evidence_items hợp lệ."
@@ -213,17 +214,13 @@ class AgentBundleImporter:
                 return desired, True
 
         destination = (
-            desired.parent
-            / "_agent_imports"
-            / task_id
-            / desired.name
+            desired.parent / "_agent_imports" / task_id / desired.name
         ).resolve()
         if destination.exists():
             if (
                 destination.is_file()
                 and not destination.is_symlink()
-                and self.calculator.calculate(destination).sha256
-                == expected_hash
+                and self.calculator.calculate(destination).sha256 == expected_hash
             ):
                 return destination, True
             raise CollectionError(

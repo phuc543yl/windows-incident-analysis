@@ -1,0 +1,209 @@
+{
+  "schema_version": 1,
+  "scenario_id": "normal",
+  "title": "[SYNTHETIC] Normal control",
+  "target_hostname": "WIN8-DEMO",
+  "profile_id": "general_investigation",
+  "synthetic": true,
+  "expected": {
+    "rule_ids": [],
+    "alert_count": 0,
+    "incident_types": [],
+    "incident_count": 0
+  },
+  "records": [
+    {
+      "record_id": "REC-SAMPLE-NORMAL-FAIL-1",
+      "source_type": "event_log",
+      "artifact_type": "event_logs",
+      "timestamp": "2026-09-29T13:00:00Z",
+      "summary": "[SYNTHETIC] NORMAL-FAIL-1",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "TargetUserName": "normaluser",
+        "IpAddress": "192.0.2.40",
+        "LogonType": 10
+      },
+      "event_id": 4625,
+      "user": "normaluser",
+      "source_ip": "192.0.2.40"
+    },
+    {
+      "record_id": "REC-SAMPLE-NORMAL-FAIL-2",
+      "source_type": "event_log",
+      "artifact_type": "event_logs",
+      "timestamp": "2026-09-29T13:00:30Z",
+      "summary": "[SYNTHETIC] NORMAL-FAIL-2",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "TargetUserName": "normaluser",
+        "IpAddress": "192.0.2.40",
+        "LogonType": 10
+      },
+      "event_id": 4625,
+      "user": "normaluser",
+      "source_ip": "192.0.2.40"
+    },
+    {
+      "record_id": "REC-SAMPLE-NORMAL-FAIL-3",
+      "source_type": "event_log",
+      "artifact_type": "event_logs",
+      "timestamp": "2026-09-29T13:01:00Z",
+      "summary": "[SYNTHETIC] NORMAL-FAIL-3",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "TargetUserName": "normaluser",
+        "IpAddress": "192.0.2.40",
+        "LogonType": 10
+      },
+      "event_id": 4625,
+      "user": "normaluser",
+      "source_ip": "192.0.2.40"
+    },
+    {
+      "record_id": "REC-SAMPLE-NORMAL-FAIL-4",
+      "source_type": "event_log",
+      "artifact_type": "event_logs",
+      "timestamp": "2026-09-29T13:01:30Z",
+      "summary": "[SYNTHETIC] NORMAL-FAIL-4",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "TargetUserName": "normaluser",
+        "IpAddress": "192.0.2.40",
+        "LogonType": 10
+      },
+      "event_id": 4625,
+      "user": "normaluser",
+      "source_ip": "192.0.2.40"
+    },
+    {
+      "record_id": "REC-SAMPLE-NORMAL-POWERSHELL",
+      "source_type": "process",
+      "artifact_type": "processes",
+      "timestamp": "2026-09-29T13:03:00Z",
+      "summary": "[SYNTHETIC] NORMAL-POWERSHELL",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "CommandLine": "powershell.exe -NoProfile -Command Get-Date"
+      },
+      "process_name": "powershell.exe",
+      "process_id": 4400,
+      "file_path": "C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe"
+    },
+    {
+      "record_id": "REC-SAMPLE-NORMAL-FILE",
+      "source_type": "file",
+      "artifact_type": "files",
+      "timestamp": "2026-09-29T13:04:00Z",
+      "summary": "[SYNTHETIC] NORMAL-FILE",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "hash_before": "8fee1eb133acf2580a0c310f0347cee10d46847d91bd7cd12b988e09e60bdf26",
+        "hash_after": "8fee1eb133acf2580a0c310f0347cee10d46847d91bd7cd12b988e09e60bdf26"
+      },
+      "file_path": "C:/CrowEyeLab/tracked.txt"
+    },
+    {
+      "record_id": "REC-SAMPLE-NORMAL-NETWORK-1",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:05:00Z",
+      "summary": "[SYNTHETIC] NORMAL-NETWORK-1",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 45000,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.40",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NORMAL-NETWORK-2",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:05:01Z",
+      "summary": "[SYNTHETIC] NORMAL-NETWORK-2",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 45001,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.40",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NORMAL-NETWORK-3",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:05:02Z",
+      "summary": "[SYNTHETIC] NORMAL-NETWORK-3",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 45002,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.40",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NORMAL-NETWORK-4",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:05:03Z",
+      "summary": "[SYNTHETIC] NORMAL-NETWORK-4",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 45003,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.40",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NORMAL-NETWORK-5",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:05:04Z",
+      "summary": "[SYNTHETIC] NORMAL-NETWORK-5",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 45004,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.40",
+      "destination_ip": "192.0.2.20"
+    }
+  ]
+}

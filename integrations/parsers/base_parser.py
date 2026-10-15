@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import csv
+import io
 import json
 import re
 from abc import ABC, abstractmethod
+from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any
 
 from common.enums import ArtifactType
 from common.exceptions import ToolIntegrationError
@@ -22,10 +24,7 @@ class RowView:
 
     def __init__(self, row: Mapping[str, Any]) -> None:
         self.raw = {str(key): value for key, value in row.items()}
-        self._values = {
-            _field_key(key): value
-            for key, value in self.raw.items()
-        }
+        self._values = {_field_key(key): value for key, value in self.raw.items()}
 
     def get(self, *aliases: str, default: Any = "") -> Any:
         for alias in aliases:
@@ -115,15 +114,11 @@ class BaseParser(ABC):
     def timestamp(self, row: RowView, *aliases: str):
         value = row.get(*aliases, default=None)
         if value is None:
-            raise ToolIntegrationError(
-                f"Thiếu timestamp ({', '.join(aliases)})."
-            )
+            raise ToolIntegrationError(f"Thiếu timestamp ({', '.join(aliases)}).")
         try:
             return parse_timestamp(value)
         except (TypeError, ValueError) as exc:
-            raise ToolIntegrationError(
-                f"Timestamp không hợp lệ: {value}"
-            ) from exc
+            raise ToolIntegrationError(f"Timestamp không hợp lệ: {value}") from exc
 
     def summary(
         self,
@@ -137,14 +132,12 @@ class BaseParser(ABC):
         suffix = source.suffix.casefold()
         if suffix == ".csv":
             text = _read_text(source)
-            return tuple(csv.DictReader(text.splitlines()))
+            return tuple(csv.DictReader(io.StringIO(text, newline="")))
         if suffix == ".json":
             try:
                 payload = json.loads(_read_text(source))
             except json.JSONDecodeError as exc:
-                raise ToolIntegrationError(
-                    f"JSON output không hợp lệ: {exc}"
-                ) from exc
+                raise ToolIntegrationError(f"JSON output không hợp lệ: {exc}") from exc
             if isinstance(payload, dict):
                 for key in ("records", "items", "results"):
                     if isinstance(payload.get(key), list):
@@ -189,6 +182,4 @@ def _read_text(path: Path) -> str:
             return data.decode(encoding)
         except UnicodeDecodeError:
             continue
-    raise ToolIntegrationError(
-        f"Không thể giải mã output text: {path.name}"
-    )
+    raise ToolIntegrationError(f"Không thể giải mã output text: {path.name}")

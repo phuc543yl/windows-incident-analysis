@@ -108,7 +108,7 @@ và output thoát khỏi Case bị từ chối.
 
 | Tool | Input | Argument chính do adapter dựng |
 |---|---|---|
-| Hayabusa | Một thư mục EVTX | `csv-timeline -d <dir> -o <csv> --UTC` |
+| Hayabusa | Một thư mục EVTX | `csv-timeline -d <dir> -o <csv> --UTC --no-wizard --no-color --profile verbose` |
 | EvtxECmd | Một file hoặc thư mục EVTX | `-f/-d <input> --csv <dir> --csvf evtxecmd.csv` |
 | PECmd | Một file hoặc thư mục Prefetch | `-f/-d <input> --csv <dir> --csvf pecmd.csv` |
 | AmcacheParser | Một file `Amcache.hve` | `-f <file> --csv <dir> --csvf amcache.csv` |
@@ -119,12 +119,19 @@ Adapter nhận đường dẫn đã resolve, không nhận chuỗi command hoàn
 `ToolRunner` gọi `subprocess.run` với `shell=False`, timeout theo definition và
 decode output bằng UTF-8 với ký tự lỗi được thay thế.
 
+Hayabusa được gọi với `--no-wizard` để bỏ qua Scan Wizard: quá trình chạy từ
+giao diện không có terminal để trả lời câu hỏi tương tác. `--no-color` tắt màu
+terminal trong nhật ký. Profile `verbose` giữ `RecordID`, `EvtxFile` và
+`ExtraFieldInfo` để đối chiếu cùng sự kiện giữa các công cụ. Giữ đầy đủ thư mục
+cài đặt Hayabusa cùng các file rules
+và cấu hình đi kèm executable.
+
 ## 7. Ánh xạ parser
 
 | Parser | `source_type` | Timestamp ưu tiên | Thực thể chính |
 |---|---|---|---|
 | Hayabusa | `hayabusa_event` | Timestamp/Datetime/TimeCreated | event, user, process, IP |
-| EvtxECmd | `evtxecmd_event` | TimeCreated/Timestamp/DateTime | event ID, user, process ID |
+| EvtxECmd | `evtxecmd_event` | TimeCreated/Timestamp/DateTime | event ID, tài khoản đích, IP, process |
 | PECmd | `pecmd_prefetch` | LastRun/LastRun0/SourceCreated | executable, file path |
 | AmcacheParser | `amcacheparser_file` | file/key last-write | program/file path |
 | MFTECmd | `mftecmd_file` | MFT modified/created | file path |
@@ -133,6 +140,34 @@ decode output bằng UTF-8 với ký tự lỗi được thay thế.
 Parser giữ toàn bộ row nguồn trong `attributes`, đồng thời chọn các trường
 chung cho detection và correlation. `raw_reference` luôn trỏ về output tương
 đối trong Case.
+
+Parser Hayabusa chấp nhận ISO-8601 và định dạng có khoảng trắng trước offset,
+ví dụ `2026-10-07 16:25:43.932 +00:00`. Offset được dùng để quy đổi về UTC;
+chuỗi timestamp gốc vẫn nằm trong `attributes`. Timestamp sai vẫn báo lỗi
+kèm số record, không được thay bằng thời điểm chạy tool.
+
+EvtxECmd `Payload` có thể chứa JSON `EventData.Data` với các cặp `@Name`/`#text`
+(hoặc `@name`), hoặc `UserData`. Parser đọc các trường có tên này; các cột
+`MapDescription`/`Description` được ưu tiên làm tóm tắt, không hiển thị JSON
+thô trong ô tóm tắt. Hayabusa hỗ trợ object JSON và text `Tên: giá trị` phân
+tách bằng ` ¦ ` hoặc ` | ` trong `Details`, `ExtraFieldInfo`, `AllFieldInfo`.
+IPv6, đường dẫn Windows và dấu hai chấm trong command line được giữ nguyên.
+CSV có ô nhiều dòng được đọc bằng CSV reader, không nối mất dấu xuống dòng.
+
+4624/4625 ưu tiên `TargetUserName`/`TgtUser` và domain đích, không thay bằng
+`SubjectUserName` hay SID `UserId`. `LogonType`/`Type` và IP hợp lệ được thêm
+vào các trường chuẩn hóa; `-`/`n/a` không được coi là thực thể. IP không có
+trong dữ liệu sẽ để trống. Các cột gốc vẫn giữ nguyên trong `attributes`, cùng
+các trường bổ sung `target_user`, `source_ip`, `logon_type`, `event_record_id`,
+`channel`, `source_event_file` và `command_line` khi có.
+
+Timeline giữ từng dòng từ công cụ, hiển thị cột Nguồn. Với hai luật đăng nhập,
+các dòng chỉ được tính là cùng một sự kiện khi có cùng Case, hostname, channel,
+file EVTX, Event ID, RecordID dương và timestamp ở độ chính xác millisecond.
+Thiếu thông tin nhận diện thì không gộp chỉ dựa vào timestamp. `failure_count`
+dùng số sự kiện sau đối chiếu, `source_record_count` cho biết số dòng công cụ;
+Alert giữ đủ `source_record_ids`. Tương quan đăng nhập thành công sau thất bại
+yêu cầu tài khoản, IP và hostname rõ ràng. Một 4625 riêng lẻ không xác nhận RDP.
 
 ## 8. Quan hệ với investigation profile
 
@@ -168,3 +203,9 @@ binary tại thời gian chạy.
 - stdout/stderr luôn được lưu để điều tra lỗi, nhưng không thay thế evidence.
 - Parser từ chối file format không hỗ trợ hoặc timestamp bắt buộc bị thiếu.
 - Một tool thất bại không làm thay đổi hash của raw artifact.
+
+Nếu bản cũ báo Hayabusa `not a terminal`, đóng Crow-Eye, cập nhật
+`integrations/adapters/hayabusa_adapter.py`, mở lại ứng dụng và chạy lại
+**1. Xử lý dữ liệu thô**. Sau khi Hayabusa thành công, chạy **2. Chạy phân tích**
+để cập nhật kết quả. Kiểm tra các cảnh báo còn lại trong hộp thoại và file
+`stderr.txt` của từng tool; xử lý hoàn tất không có nghĩa mọi tool đều thành công.

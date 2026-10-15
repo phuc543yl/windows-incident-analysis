@@ -9,7 +9,13 @@ import zipfile
 from dataclasses import replace
 from datetime import timedelta
 from pathlib import Path
+from unittest.mock import patch
 
+from agent.agent_logger import AgentLogger
+from agent.authentication import AgentAuthenticator
+from agent.configuration import AgentSettings
+from agent.local_buffer import AgentTask, LocalBuffer
+from agent.task_executor import TaskExecutor
 from clients.base_client import BaseClient
 from collection.collector_registry import (
     BaseCollector,
@@ -22,11 +28,6 @@ from common.json_utils import write_json
 from common.time_utils import utc_now
 from models.collection_plan import CollectionPlan
 from models.evidence_manifest import EvidenceManifest
-from agent.agent_logger import AgentLogger
-from agent.authentication import AgentAuthenticator
-from agent.configuration import AgentSettings
-from agent.local_buffer import LocalBuffer
-from agent.task_executor import TaskExecutor
 
 try:
     import flask  # noqa: F401
@@ -109,15 +110,11 @@ class AgentTestCase(unittest.TestCase):
                 FakeEvtxCollector(),
             )
         )
-        self.write_config(
-            collector_allowlist=["system", "users", "event_logs"]
-        )
+        self.write_config(collector_allowlist=["system", "users", "event_logs"])
 
     def write_config(self, **changes) -> dict:
         config = json.loads(
-            (PROJECT_ROOT / "config" / "agent.json").read_text(
-                encoding="utf-8"
-            )
+            (PROJECT_ROOT / "config" / "agent.json").read_text(encoding="utf-8")
         )
         for key, value in changes.items():
             if "." not in key:
@@ -313,6 +310,23 @@ class AuthenticationAndLoggingTests(AgentTestCase):
 
 
 class LocalBufferTests(AgentTestCase):
+    def test_progress_is_persisted_and_only_running_tasks_can_update_it(self) -> None:
+        buffer = LocalBuffer(self.temp_path / "buffer")
+        task = buffer.create(self.plan().to_dict())
+        with self.assertRaises(AgentError):
+            buffer.set_progress(task.task_id, "Collector 1/2")
+        buffer.mark_running(task.task_id)
+        buffer.set_progress(task.task_id, "Collector 1/2: system...")
+        self.assertEqual(
+            buffer.get(task.task_id).progress_message, "Collector 1/2: system..."
+        )
+        old_data = buffer.get(task.task_id).to_dict()
+        del old_data["progress_message"]
+        self.assertEqual(AgentTask.from_dict(old_data).progress_message, "")
+        buffer.mark_failed(task.task_id, "test error")
+        with self.assertRaises(AgentError):
+            buffer.set_progress(task.task_id, "Should not update")
+
     def test_task_state_is_persisted_and_transitions_are_validated(self) -> None:
         buffer = LocalBuffer(
             self.temp_path / "buffer",
@@ -400,12 +414,8 @@ class LocalBufferTests(AgentTestCase):
         removed = buffer.cleanup_failed(now=utc_now())
 
         self.assertEqual(removed, (expired.task_id,))
-        self.assertFalse(
-            buffer.task_directory(expired.task_id).exists()
-        )
-        self.assertTrue(
-            buffer.task_directory(recent.task_id).exists()
-        )
+        self.assertFalse(buffer.task_directory(expired.task_id).exists())
+        self.assertTrue(buffer.task_directory(recent.task_id).exists())
 
     def test_rejects_symbolic_link_buffer(self) -> None:
         target = self.temp_path / "real-buffer"
@@ -439,6 +449,24 @@ class TaskExecutorTests(AgentTestCase):
         self.addCleanup(executor.close)
         return executor, buffer, client
 
+    def test_collector_progress_is_visible_while_agent_is_still_running(self) -> None:
+        executor, buffer, _ = self.executor()
+        collector = self.registry.get("system")
+        original_collect = collector.collect
+        observed = []
+
+        def collect(client, destination, options):
+            running_task = buffer.list()[0]
+            observed.append((running_task.status, running_task.progress_message))
+            return original_collect(client, destination, options)
+
+        with patch.object(collector, "collect", side_effect=collect):
+            task = executor.submit(self.plan(), background=False)
+
+        self.assertEqual(observed, [("running", "Collector 1/2: system...")])
+        self.assertEqual(task.status, "completed")
+        self.assertIn("Evidence Bundle", task.progress_message)
+
     def test_executes_collectors_and_builds_hashed_bundle(self) -> None:
         executor, buffer, _ = self.executor()
 
@@ -448,10 +476,7 @@ class TaskExecutorTests(AgentTestCase):
         self.assertEqual(task.status, "completed")
         self.assertEqual(len(task.collection_results), 2)
         self.assertTrue(
-            all(
-                result["status"] == "succeeded"
-                for result in task.collection_results
-            )
+            all(result["status"] == "succeeded" for result in task.collection_results)
         )
         self.assertEqual(
             hashlib.sha256(bundle.read_bytes()).hexdigest(),
@@ -459,12 +484,8 @@ class TaskExecutorTests(AgentTestCase):
         )
         with zipfile.ZipFile(bundle) as archive:
             names = set(archive.namelist())
-            manifest_data = json.loads(
-                archive.read("acquisition/manifest.json")
-            )
-            collection_data = json.loads(
-                archive.read("collection_results.json")
-            )
+            manifest_data = json.loads(archive.read("acquisition/manifest.json"))
+            collection_data = json.loads(archive.read("collection_results.json"))
             self.assertIn(
                 "acquisition/live/system.json",
                 names,
@@ -480,11 +501,11 @@ class TaskExecutorTests(AgentTestCase):
         self.assertEqual(manifest.case_id, self.plan().case_id)
         self.assertEqual(manifest.item_count, 2)
         self.assertTrue(
-            all(item.evidence_id.startswith("EVID-") for item in manifest.evidence_items)
+            all(
+                item.evidence_id.startswith("EVID-") for item in manifest.evidence_items
+            )
         )
-        self.assertTrue(
-            all(item.hostname for item in manifest.evidence_items)
-        )
+        self.assertTrue(all(item.hostname for item in manifest.evidence_items))
         self.assertTrue(
             all(
                 result["evidence_item_ids"]
@@ -658,9 +679,7 @@ class AgentApiTests(AgentTestCase):
             "/api/v1/tasks/TASK-" + "0" * 32,
             headers=self.headers,
         )
-        queued = app.extensions["agent_buffer"].create(
-            self.plan().to_dict()
-        )
+        queued = app.extensions["agent_buffer"].create(self.plan().to_dict())
         unready = client.get(
             f"/api/v1/tasks/{queued.task_id}/bundle",
             headers=self.headers,

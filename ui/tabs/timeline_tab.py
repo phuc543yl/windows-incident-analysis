@@ -1,10 +1,12 @@
 """Chronological normalized incident timeline tab."""
 
 from __future__ import annotations
-
+from datetime import timedelta, timezone
+from common.time_utils import parse_timestamp
 import tkinter as tk
+from collections.abc import Iterable
 from tkinter import messagebox, ttk
-from typing import Any, Iterable
+from typing import Any
 
 from ui.components.data_table import Column, DataTable
 from ui.timeline_filter import TimelineFilter, filter_timeline_events
@@ -18,9 +20,10 @@ class TimelineTab(ttk.Frame):
         self.table = DataTable(
             self,
             (
-                Column("timestamp", "Timestamp (UTC)", 185),
+                Column("timestamp_display", "Thời gian (UTC+07:00)", 230),
                 Column("event_type", "Loại sự kiện", 145),
                 Column("event_id", "Event ID", 80),
+                Column("source", "Nguồn", 110),
                 Column("hostname", "Hostname", 130),
                 Column("user", "User", 125),
                 Column("ip", "IP", 150),
@@ -111,9 +114,7 @@ class TimelineTab(ttk.Frame):
             text="Xóa lọc",
             command=self.clear_filters,
         ).grid(row=1, column=action_column + 1, padx=(0, 4))
-        self.filter_status_var = tk.StringVar(
-            value="Hiển thị 0 / 0 timeline events"
-        )
+        self.filter_status_var = tk.StringVar(value="Hiển thị 0 / 0 timeline events")
         ttk.Label(frame, textvariable=self.filter_status_var).grid(
             row=2,
             column=0,
@@ -125,9 +126,25 @@ class TimelineTab(ttk.Frame):
     @staticmethod
     def _display_row(event: dict[str, Any]) -> dict[str, Any]:
         row = dict(event)
+        try:
+            vietnam_time = parse_timestamp(
+                event.get("timestamp")
+            ).astimezone(timezone(timedelta(hours=7)))
+
+            row["timestamp_display"] = (
+                    vietnam_time.strftime("%d/%m/%Y %H:%M:%S.")
+                    + f"{vietnam_time.microsecond // 1000:03d}"
+            )
+        except (TypeError, ValueError, OverflowError):
+            row["timestamp_display"] = str(event.get("timestamp") or "")
         details = event.get("details")
         details = details if isinstance(details, dict) else {}
         row["event_id"] = details.get("event_id")
+        source_type = str(details.get("source_type") or "")
+        row["source"] = {
+            "hayabusa_event": "Hayabusa",
+            "evtxecmd_event": "EvtxECmd",
+        }.get(source_type, source_type)
         source_ip = str(details.get("source_ip") or "").strip()
         destination_ip = str(details.get("destination_ip") or "").strip()
         if source_ip and destination_ip and source_ip != destination_ip:

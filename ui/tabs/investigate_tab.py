@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import tkinter as tk
+from collections.abc import Callable
 from tkinter import messagebox, ttk
-from typing import Any, Callable
+from typing import Any
 
 from ui.components.data_table import Column, DataTable
 
@@ -17,6 +18,7 @@ class InvestigateTab(ttk.Frame):
         on_add_note: Callable[[str], None],
         on_save_checklist: Callable[[list[dict[str, Any]]], None],
         on_pivot: Callable[[str, str], None],
+        on_capture_baseline: Callable[[], None] | None = None,
     ) -> None:
         super().__init__(parent, padding=10)
         self.on_add_note = on_add_note
@@ -72,9 +74,7 @@ class InvestigateTab(ttk.Frame):
             side=tk.LEFT,
             padx=6,
         )
-        ttk.Button(filters, text="Lọc thực thể", command=self._pivot).pack(
-            side=tk.LEFT
-        )
+        ttk.Button(filters, text="Lọc thực thể", command=self._pivot).pack(side=tk.LEFT)
         self.entities_hint = tk.StringVar(value="Chưa có thực thể.")
         ttk.Label(filters, textvariable=self.entities_hint, style="Muted.TLabel").pack(
             side=tk.LEFT,
@@ -96,6 +96,20 @@ class InvestigateTab(ttk.Frame):
         notebook.add(pivot, text="Pivot")
 
         baseline = ttk.Frame(notebook, padding=6)
+        baseline_actions = ttk.Frame(baseline)
+        baseline_actions.pack(fill=tk.X, pady=(0, 6))
+        ttk.Button(
+            baseline_actions,
+            text="Lưu baseline T0",
+            command=on_capture_baseline,
+            state=tk.NORMAL if on_capture_baseline else tk.DISABLED,
+        ).pack(side=tk.LEFT)
+        self.baseline_hint = tk.StringVar(
+            value="Lưu T0 trước thử nghiệm; phân tích dữ liệu T1 để xem thay đổi."
+        )
+        ttk.Label(
+            baseline_actions, textvariable=self.baseline_hint, wraplength=760
+        ).pack(side=tk.LEFT, padx=8)
         self.baseline = DataTable(
             baseline,
             (
@@ -157,6 +171,11 @@ class InvestigateTab(ttk.Frame):
         self.mitre.set_rows(mitre, id_key="technique_id")
         baseline = (data.get("baseline") or {}).get("changes") or []
         self.baseline.set_rows(baseline, id_key="identifier")
+        baseline_notes = (data.get("baseline") or {}).get("notes") or []
+        self.baseline_hint.set(
+            " ".join(baseline_notes)
+            or "Lưu T0 trước thử nghiệm; phân tích dữ liệu T1 để xem thay đổi."
+        )
         self.notes.set_rows(data.get("notes") or [], id_key="timestamp")
         entities = data.get("entities") or {}
         self.entities_hint.set(

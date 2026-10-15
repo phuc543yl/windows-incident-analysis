@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from analysis.analysis_service import AnalysisService
 from common.exceptions import ProcessingError
@@ -31,12 +32,14 @@ class AnalysisController:
         *,
         records: Iterable[NormalizedRecord] | None = None,
         timeline: Iterable[TimelineEvent] | None = None,
+        on_progress: Callable[[str], None] | None = None,
     ) -> dict[str, Any]:
         case_id = self.case_controller.require_case_id()
         result = self.service.analyze(
             case_id=case_id,
             records=records,
             timeline=timeline,
+            **({"on_progress": on_progress} if on_progress is not None else {}),
         )
         return {
             "case_id": result.case_id,
@@ -57,16 +60,11 @@ class AnalysisController:
             timeline = ()
         return {
             "findings": [
-                item.to_dict()
-                for item in self.service.load_findings(case_id)
+                item.to_dict() for item in self.service.load_findings(case_id)
             ],
-            "alerts": [
-                item.to_dict()
-                for item in self.service.load_alerts(case_id)
-            ],
+            "alerts": [item.to_dict() for item in self.service.load_alerts(case_id)],
             "incidents": [
-                item.to_dict()
-                for item in self.service.load_incidents(case_id)
+                item.to_dict() for item in self.service.load_incidents(case_id)
             ],
             "timeline": [item.to_dict() for item in timeline],
         }

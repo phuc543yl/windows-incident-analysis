@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "agent": {
+    "agent_id": "WIN-LAB-AGENT",
+    "host": "192.168.122.141",
+    "port": 8765,
+    "request_timeout_seconds": 180,
+    "max_concurrent_tasks": 1
+  },
+  "authentication": {
+    "enabled": true,
+    "token_header": "X-Agent-Token",
+    "token_env": "WINDOWS_FORENSIC_AGENT_TOKEN",
+    "allow_token_in_config": false
+  },
+  "transport": {
+    "https_enabled": false,
+    "lab_mode_only": true,
+    "allowed_client_ips": [
+      "127.0.0.1",
+      "192.168.122.1"
+    ]
+  },
+  "collector_allowlist": [
+    "system",
+    "users",
+    "processes",
+    "network",
+    "services",
+    "startup",
+    "event_logs",
+    "prefetch",
+    "amcache",
+    "registry",
+    "mft",
+    "scheduled_tasks",
+    "firewall_logs",
+    "files"
+  ],
+  "limits": {
+    "max_bundle_size_mb": 2048,
+    "max_file_size_mb": 512,
+    "command_timeout_seconds": 120
+  },
+  "buffer": {
+    "directory": "runtime/agent_buffer",
+    "delete_after_successful_transfer": true,
+    "retention_hours_on_failure": 24
+  },
+  "audit": {
+    "enabled": true,
+    "file": "runtime/logs/agent.log",
+    "redact_authentication_values": true
+  }
+}

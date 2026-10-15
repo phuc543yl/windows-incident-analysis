@@ -23,7 +23,9 @@
       "raw_reference": "analysis/tool_outputs/evtxecmd/service.csv",
       "attributes": {
         "ServiceName": "CrowEyeLabService",
-        "State": "stopped"
+        "State": "stopped",
+        "authorized": false,
+        "downtime_seconds": 120
       }
     },
     {

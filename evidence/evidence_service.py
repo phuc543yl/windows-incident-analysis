@@ -9,6 +9,7 @@ from typing import Any
 from case_management.audit_logger import AuditLogger
 from case_management.case_repository import CaseRepository
 from common.exceptions import EvidenceError, IntegrityVerificationError
+from common.json_utils import read_json_object
 from evidence.bundle_builder import BundleBuilder, BundleResult
 from evidence.bundle_reader import BundleReader
 from evidence.integrity_verifier import IntegrityVerifier
@@ -24,6 +25,15 @@ class EvidenceService:
     ) -> None:
         self.repository = CaseRepository(root)
         self.actor = actor.strip() if actor and actor.strip() else _default_actor()
+
+    def ensure_preserved(self, case_id: str) -> dict[str, Any]:
+        """Register new evidence, or verify the existing manifest unchanged."""
+        case = self.repository.require_open(case_id)
+        paths = self.repository.paths(case.case_id)
+        if paths.manifest_json.exists():
+            self.verify_case(case.case_id)
+            return read_json_object(paths.manifest_json)
+        return self.preserve_case(case.case_id)
 
     def preserve_case(
         self,

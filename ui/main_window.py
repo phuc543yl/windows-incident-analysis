@@ -9,22 +9,24 @@ import subprocess
 import sys
 import threading
 import tkinter as tk
+from collections.abc import Callable
 from pathlib import Path
 from tkinter import messagebox, ttk
-from typing import Any, Callable
+from typing import Any
 
 from clients.agent_client import AgentClient
 from common.constants import APP_NAME, APP_VERSION
 from common.exceptions import JsonFileError
 from common.json_utils import read_json_object
 from evidence.evidence_service import EvidenceService
+from ui.components.progress_dialog import ProgressDialog
 from ui.components.status_bar import StatusBar
 from ui.components.toolbar import Toolbar
-from ui.theme import apply_theme
 from ui.controllers import (
     AnalysisController,
     CaseController,
     CollectionController,
+    CurrentCaseRequiredError,
     IntegrationController,
     InvestigateController,
     ReportController,
@@ -40,6 +42,7 @@ from ui.tabs import (
     ReportTab,
     TimelineTab,
 )
+from ui.theme import apply_theme
 
 
 class MainWindow:
@@ -60,10 +63,12 @@ class MainWindow:
         )
         self._task_queue: queue.Queue[
             tuple[
+                str,
                 Callable[[Any], None] | None,
                 Any,
                 BaseException | None,
                 str,
+                ProgressDialog | None,
             ]
         ] = queue.Queue()
         self._busy_tasks = 0
@@ -111,7 +116,7 @@ class MainWindow:
         self._refresh_case_list()
         self.root.protocol("WM_DELETE_WINDOW", self.close)
         self.root.after(100, self._poll_tasks)
-        self.root.after(250, self._ensure_lab_agent)
+        #self.root.after(250, self._ensure_lab_agent)
 
     def _configure_window(self) -> None:
         self.root.title(f"Crow-Eye — {APP_NAME} {APP_VERSION}")
@@ -165,6 +170,7 @@ class MainWindow:
             self.notebook,
             on_add_note=self._add_note,
             on_save_checklist=self._save_checklist,
+            on_capture_baseline=self._capture_baseline,
             on_pivot=self._pivot_entity,
         )
         self.timeline_tab = TimelineTab(self.notebook)
@@ -238,9 +244,7 @@ class MainWindow:
         paths = self.case_controller.service.repository.paths(case_id)
         if paths.manifest_json.is_file():
             try:
-                self.evidence_tab.set_manifest(
-                    read_json_object(paths.manifest_json)
-                )
+                self.evidence_tab.set_manifest(read_json_object(paths.manifest_json))
             except JsonFileError as exc:
                 self._show_error(exc)
         else:
@@ -276,13 +280,15 @@ class MainWindow:
             self.case_controller.refresh_current()
 
     def _collect(self, mode: str, agent_id: str | None) -> None:
-        self._run_background(
-            lambda: self.collection_controller.collect(
+        self._run_progress_task(
+            lambda report: self.collection_controller.collect(
                 mode=mode,
                 agent_id=agent_id,
+                on_progress=report,
             ),
             self._collection_completed,
             "Đang thu thập artifact...",
+            title="Crow-Eye — Tiến trình thu thập",
         )
 
     def _collection_completed(
@@ -290,15 +296,19 @@ class MainWindow:
         results: tuple[dict[str, Any], ...],
     ) -> None:
         self.collection_tab.set_results(results)
+        case_id = self.case_controller.require_case_id()
+        manifest = self.evidence_service.repository.paths(case_id).manifest_json
+        if manifest.is_file():
+            self.evidence_tab.set_manifest(read_json_object(manifest))
         summary = self.collection_controller.summarize(results)
         self.status_bar.set_message(
             f"Thu thập xong: {summary['succeeded']} thành công, "
-            f"{summary['failed']} thất bại."
+            f"{summary['failed']} thất bại. Hãy chạy lại Xử lý dữ liệu thô trước khi phân tích."
         )
 
     def _preserve_evidence(self) -> None:
         self._run_background(
-            lambda: self.evidence_service.preserve_case(
+            lambda: self.evidence_service.ensure_preserved(
                 self.case_controller.require_case_id()
             ),
             self._evidence_preserved,
@@ -323,6 +333,7 @@ class MainWindow:
     def _evidence_verified(self, result: dict[str, Any]) -> None:
         self.evidence_tab.set_verification(result)
         self.status_bar.set_message("Evidence toàn vẹn.")
+        self._refresh_analysis()
 
     def _build_bundle(self) -> None:
         self._run_background(
@@ -336,17 +347,24 @@ class MainWindow:
         )
 
     def _analyze(self) -> None:
-        self._run_background(
-            self.analysis_controller.analyze,
-            lambda _result: self._refresh_analysis(),
+        def operation(report: Callable[[str], None]) -> dict[str, Any]:
+            self.analysis_controller.analyze(on_progress=report)
+            report("Đang tải kết quả phân tích lên giao diện...")
+            return self.analysis_controller.refresh()
+
+        self._run_progress_task(
+            operation,
+            self._analysis_refreshed,
             "Đang chạy analyzer, rule và correlation...",
+            title="Crow-Eye — Tiến trình phân tích",
         )
 
     def _process_raw_data(self) -> None:
-        self._run_background(
-            self.integration_controller.process,
+        self._run_progress_task(
+            lambda report: self.integration_controller.process(on_progress=report),
             self._raw_data_processed,
             "Đang chạy DFIR tools và chuẩn hóa dữ liệu...",
+            title="Crow-Eye — Tiến trình xử lý dữ liệu thô",
         )
 
     def _raw_data_processed(self, result: dict[str, Any]) -> None:
@@ -442,11 +460,18 @@ class MainWindow:
             {
                 "case": case,
                 "evidence_count": len(
-                    (self.evidence_tab.table._records if hasattr(self, "evidence_tab") else {})
+                    (
+                        self.evidence_tab.table._records
+                        if hasattr(self, "evidence_tab")
+                        else {}
+                    )
                 ),
-                "integrity": "đã có manifest"
-                if (self.case_controller.service.repository.paths(case_id).manifest_json.is_file())
-                else "chưa có manifest",
+                "integrity": self._integrity_summary(
+                    investigation.get("integrity_verification") or {},
+                    has_manifest=self.case_controller.service.repository.paths(
+                        case_id
+                    ).manifest_json.is_file(),
+                ),
                 "finding_count": len(analysis.get("findings") or []),
                 "alert_count": len(analysis.get("alerts") or []),
                 "incident_count": len(incidents),
@@ -457,6 +482,17 @@ class MainWindow:
             }
         )
         self.investigate_tab.set_investigation(investigation)
+
+    @staticmethod
+    def _integrity_summary(verification: dict[str, Any], *, has_manifest: bool) -> str:
+        if not has_manifest:
+            return "Chưa có manifest; cần đăng ký và kiểm tra bằng chứng."
+        if not verification:
+            return "Có manifest; chưa có kết quả kiểm tra SHA-256."
+        when = str(verification.get("verified_at") or "không rõ thời điểm")
+        if verification.get("success") is True:
+            return f"Lần kiểm tra SHA-256 gần nhất: đạt ({when})."
+        return f"Lần kiểm tra SHA-256 gần nhất: KHÔNG ĐẠT ({when})."
 
     def _add_note(self, text: str) -> None:
         self._safe_action(
@@ -482,6 +518,22 @@ class MainWindow:
             success=f"Đã lọc {entity_type}={value}.",
         )
 
+    def _capture_baseline(self) -> None:
+        self._run_progress_task(
+            lambda report: self.investigate_controller.capture_baseline(
+                on_progress=report
+            ),
+            self._baseline_captured,
+            "Đang lưu baseline T0 và bản sao bằng chứng...",
+            title="Crow-Eye — Tiến trình lưu baseline T0",
+        )
+
+    def _baseline_captured(self, result: dict[str, Any]) -> None:
+        self.investigate_tab.set_investigation(result)
+        self.status_bar.set_message(
+            "Đã lưu baseline T0. Thu thập và phân tích dữ liệu T1 để đối chiếu."
+        )
+
     def _generate_report(self, formats: tuple[str, ...]) -> None:
         self._run_background(
             lambda: self.report_controller.generate(formats),
@@ -491,15 +543,11 @@ class MainWindow:
 
     def _report_generated(self, result: dict[str, Any]) -> None:
         self.report_tab.set_result(result)
-        self.status_bar.set_message(
-            "Đã xuất: " + ", ".join(result["formats"]).upper()
-        )
+        self.status_bar.set_message("Đã xuất: " + ", ".join(result["formats"]).upper())
 
     def _load_agent_configuration(self) -> None:
         try:
-            config = read_json_object(
-                self.project_root / "config" / "agent.json"
-            )
+            config = read_json_object(self.project_root / "config" / "agent.json")
         except JsonFileError as exc:
             self.agent_tab.status_var.set(str(exc))
             return
@@ -597,11 +645,44 @@ class MainWindow:
         self.status_bar.set_message(success)
         return result
 
+    def _run_progress_task(
+        self,
+        operation: Callable[[Callable[[str], None]], Any],
+        on_success: Callable[[Any], None],
+        message: str,
+        *,
+        title: str,
+    ) -> None:
+        # Validate on the UI thread before opening a modal dialog. The grab
+        # prevents changing Cases or starting another job during the workflow.
+        if self._busy_tasks:
+            self.status_bar.set_message("Hãy chờ tác vụ hiện tại hoàn tất.")
+            return
+        try:
+            self.case_controller.require_case_id()
+        except CurrentCaseRequiredError as exc:
+            self._show_error(exc)
+            return
+        dialog = ProgressDialog(self.root, message, title=title)
+
+        def report(detail: str) -> None:
+            # Workers only enqueue text. All Tk calls happen in _poll_tasks.
+            self._task_queue.put(("progress", None, None, None, detail, dialog))
+
+        self._run_background(
+            lambda: operation(report),
+            on_success,
+            message,
+            progress_dialog=dialog,
+        )
+
     def _run_background(
         self,
         operation: Callable[[], Any],
         on_success: Callable[[Any], None] | None,
         message: str,
+        *,
+        progress_dialog: ProgressDialog | None = None,
     ) -> None:
         self._busy_tasks += 1
         self.status_bar.set_busy(True, message)
@@ -610,9 +691,13 @@ class MainWindow:
             try:
                 result = operation()
             except BaseException as exc:
-                self._task_queue.put((on_success, None, exc, message))
+                self._task_queue.put(
+                    ("complete", on_success, None, exc, message, progress_dialog)
+                )
             else:
-                self._task_queue.put((on_success, result, None, message))
+                self._task_queue.put(
+                    ("complete", on_success, result, None, message, progress_dialog)
+                )
 
         threading.Thread(
             target=worker,
@@ -621,21 +706,37 @@ class MainWindow:
         ).start()
 
     def _poll_tasks(self) -> None:
+        if self._closed:
+            return
         while True:
             try:
-                callback, result, error, _message = (
+                kind, callback, result, error, message, dialog = (
                     self._task_queue.get_nowait()
                 )
             except queue.Empty:
                 break
+            if kind == "progress":
+                if dialog is not None:
+                    dialog.set_message(message)
+                self.status_bar.set_message(message)
+                continue
             self._busy_tasks = max(0, self._busy_tasks - 1)
-            if error is not None:
-                self._show_error(error)
-            elif callback is not None:
+            if error is None and callback is not None:
                 try:
                     callback(result)
                 except Exception as exc:
-                    self._show_error(exc)
+                    error = exc
+            if dialog is not None:
+                summary = (
+                    f"Lỗi: {error}"
+                    if error is not None
+                    else self.status_bar.message_var.get()
+                )
+                dialog.finish(summary, failed=error is not None)
+                if error is not None:
+                    self.status_bar.set_message(summary)
+            elif error is not None:
+                self._show_error(error)
         if self._busy_tasks == 0:
             self.status_bar.set_busy(False)
         if not self._closed:

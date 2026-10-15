@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -12,14 +13,14 @@ from clients.agent_client import AgentClient
 from clients.local_client import LocalClient
 from collection.agent_bundle_importer import AgentBundleImporter
 from collection.collector_registry import (
-    CollectorOutput,
     CollectorRegistry,
     build_default_registry,
 )
+from collection.evidence_update import LocalEvidenceUpdate
 from collection.plan_builder import PlanBuilder
-from common.enums import CollectionStatus, EvidenceCategory, OperationMode
+from common.enums import CollectionStatus, OperationMode
 from common.exceptions import CollectionError
-from common.json_utils import append_jsonl, write_json
+from common.json_utils import append_jsonl
 from common.time_utils import utc_now
 from models.collection_plan import CollectionPlan
 from models.collection_result import CollectionResult
@@ -46,25 +47,30 @@ class CollectionService:
         case_id: str,
         mode: OperationMode | str | None = None,
         agent_id: str | None = None,
+        *,
+        on_progress: Callable[[str], None] | None = None,
     ) -> list[CollectionResult]:
+        report = on_progress or (lambda _message: None)
+        report("Đang kiểm tra Case và kế hoạch thu thập...")
         case = self.repository.require_open(case_id)
         plan = self.repository.load_collection_plan(case.case_id)
-        if (
-            agent_id is not None
-            and mode is None
-            and plan.mode is OperationMode.LOCAL
-        ):
-            raise ValueError(
-                "agent_id chỉ được dùng khi mode là 'agent'."
-            )
+        if agent_id is not None and mode is None and plan.mode is OperationMode.LOCAL:
+            raise ValueError("agent_id chỉ được dùng khi mode là 'agent'.")
         plan = PlanBuilder.with_overrides(
             plan,
             mode=mode,
             target_agent_id=agent_id,
         )
         if plan.mode is OperationMode.AGENT:
-            return self._collect_agent(plan)
-        return self._collect_local(plan)
+            results = self._collect_agent(plan, on_progress=on_progress)
+        else:
+            results = self._collect_local(plan, on_progress=on_progress)
+        report(
+            f"Thu thập hoàn tất: {len(results)} collector, "
+            f"{sum(result.succeeded for result in results)} thành công, "
+            f"{sum(not result.succeeded for result in results)} thất bại."
+        )
+        return results
 
     def close(self) -> None:
         if self.local_client is not None:
@@ -75,9 +81,24 @@ class CollectionService:
     def _collect_local(
         self,
         plan: CollectionPlan,
+        *,
+        on_progress: Callable[[str], None] | None = None,
+    ) -> list[CollectionResult]:
+        with LocalEvidenceUpdate(
+            plan.case_id,
+            self.repository.project,
+            on_progress=on_progress,
+        ) as update:
+            return self._collect_local_outputs(plan, update, on_progress=on_progress)
+
+    def _collect_local_outputs(
+        self,
+        plan: CollectionPlan,
+        update: LocalEvidenceUpdate,
+        *,
+        on_progress: Callable[[str], None] | None = None,
     ) -> list[CollectionResult]:
         client = self.local_client or LocalClient()
-        paths = self.repository.paths(plan.case_id)
         options = dict(plan.options)
         results: list[CollectionResult] = []
         collector_ids = (
@@ -94,25 +115,18 @@ class CollectionService:
             },
         )
 
-        for collector_id in collector_ids:
+        for index, collector_id in enumerate(collector_ids, start=1):
+            if on_progress is not None:
+                on_progress(
+                    f"Collector {index}/{len(collector_ids)}: {collector_id}..."
+                )
             started_at = utc_now()
             collector = None
             try:
                 collector = self.registry.get(collector_id)
-                destination = (
-                    paths.live
-                    if collector.category is EvidenceCategory.LIVE
-                    else paths.raw_artifact_dir(collector_id)
-                )
+                destination = update.destination(collector)
                 output = collector.collect(client, destination, options)
-                output_paths = self._persist_output(
-                    collector_id,
-                    collector.category,
-                    collector.output_filename,
-                    output,
-                    paths.root,
-                    destination,
-                )
+                output_paths = update.install(collector, output)
                 status = (
                     CollectionStatus.PARTIAL
                     if output.warnings
@@ -152,6 +166,7 @@ class CollectionService:
                 )
                 self._record_result(result)
                 results.append(result)
+                self._report_result(result, on_progress)
                 if not self.continue_on_error:
                     audit.log(
                         "collection_failed",
@@ -163,13 +178,13 @@ class CollectionService:
                         },
                     )
                     raise CollectionError(
-                        f"Collector {collector_id} thất bại: "
-                        f"{_safe_error(exc)}"
+                        f"Collector {collector_id} thất bại: {_safe_error(exc)}"
                     ) from exc
                 continue
 
             self._record_result(result)
             results.append(result)
+            self._report_result(result, on_progress)
 
         audit.log(
             "collection_completed",
@@ -180,12 +195,8 @@ class CollectionService:
             ),
             details={
                 "plan_id": plan.plan_id,
-                "succeeded": sum(
-                    result.succeeded for result in results
-                ),
-                "failed": sum(
-                    not result.succeeded for result in results
-                ),
+                "succeeded": sum(result.succeeded for result in results),
+                "failed": sum(not result.succeeded for result in results),
             },
         )
         return results
@@ -193,7 +204,11 @@ class CollectionService:
     def _collect_agent(
         self,
         plan: CollectionPlan,
+        *,
+        on_progress: Callable[[str], None] | None = None,
     ) -> list[CollectionResult]:
+        report = on_progress or (lambda _message: None)
+        report("Đang kết nối và gửi kế hoạch thu thập tới Agent...")
         client = self.agent_client
         if client is None:
             config_path = self.repository.project / "config" / "agent.json"
@@ -210,15 +225,21 @@ class CollectionService:
         )
         try:
             task_id = client.submit_collection(plan)
-            task = client.wait_for_task(task_id)
+            report(f"Đã gửi tác vụ {task_id}. Đang chờ Agent thu thập...")
+            task = client.wait_for_task(
+                task_id,
+                **({"on_progress": on_progress} if on_progress is not None else {}),
+            )
             paths = self.repository.paths(plan.case_id)
             safe_task_id = re.sub(r"[^A-Za-z0-9_.-]", "_", task_id)
             bundle_path = paths.bundles / f"{safe_task_id}.zip"
+            report("Đang tải Evidence Bundle từ Agent và kiểm tra SHA-256...")
             client.download_bundle(
                 task_id,
                 bundle_path,
                 expected_sha256=task.get("bundle_sha256"),
             )
+            report("Đang kiểm tra và nhập bằng chứng vào Case...")
             import_result = AgentBundleImporter(
                 self.repository.project,
                 actor="collection-service",
@@ -232,9 +253,7 @@ class CollectionService:
             results = self._agent_results(plan, task, bundle_path)
             for result in results:
                 result.metadata["bundle_imported"] = True
-                result.metadata["imported_evidence_count"] = (
-                    import_result.item_count
-                )
+                result.metadata["imported_evidence_count"] = import_result.item_count
         except Exception as exc:
             audit.log(
                 "agent_collection_failed",
@@ -252,6 +271,7 @@ class CollectionService:
 
         for result in results:
             self._record_result(result)
+            self._report_result(result, on_progress)
         audit.log(
             "agent_collection_completed",
             status=(
@@ -262,14 +282,33 @@ class CollectionService:
             details={
                 "plan_id": plan.plan_id,
                 "task_id": task_id,
-                "bundle_path": bundle_path.relative_to(
-                    paths.root
-                ).as_posix(),
+                "bundle_path": bundle_path.relative_to(paths.root).as_posix(),
                 "bundle_imported": True,
                 "imported_evidence_count": import_result.item_count,
             },
         )
         return results
+
+    @staticmethod
+    def _report_result(
+        result: CollectionResult,
+        on_progress: Callable[[str], None] | None,
+    ) -> None:
+        if on_progress is None:
+            return
+        labels = {
+            CollectionStatus.SUCCEEDED: "thành công",
+            CollectionStatus.PARTIAL: "hoàn tất có cảnh báo",
+            CollectionStatus.FAILED: "thất bại",
+        }
+        on_progress(
+            f"{result.collector_id}: {labels.get(result.status, result.status.value)}, "
+            f"{result.record_count} bản ghi."
+        )
+        for warning in result.warnings:
+            on_progress(f"{result.collector_id} — Cảnh báo: {warning}")
+        for error in result.errors:
+            on_progress(f"{result.collector_id} — Lỗi: {error}")
 
     def _agent_results(
         self,
@@ -287,14 +326,9 @@ class CollectionService:
                 if isinstance(item, dict)
             ]
             if not results:
-                raise CollectionError(
-                    "Agent không trả về CollectionResult hợp lệ."
-                )
+                raise CollectionError("Agent không trả về CollectionResult hợp lệ.")
             for result in results:
-                if (
-                    result.case_id != plan.case_id
-                    or result.plan_id != plan.plan_id
-                ):
+                if result.case_id != plan.case_id or result.plan_id != plan.plan_id:
                     raise CollectionError(
                         "CollectionResult từ Agent không khớp Case/Plan."
                     )
@@ -321,38 +355,6 @@ class CollectionService:
                 *plan.artifact_collectors,
             )
         ]
-
-    def _persist_output(
-        self,
-        collector_id: str,
-        category: EvidenceCategory,
-        output_filename: str | None,
-        output: CollectorOutput,
-        case_root: Path,
-        destination: Path,
-    ) -> list[str]:
-        if category is EvidenceCategory.LIVE:
-            filename = output_filename or f"{collector_id}.json"
-            output_path = write_json(destination / filename, output.data)
-            return [output_path.relative_to(case_root).as_posix()]
-
-        output_paths: list[str] = []
-        destination_root = destination.resolve()
-        for path in output.files:
-            resolved = path.resolve()
-            try:
-                resolved.relative_to(destination_root)
-            except ValueError as exc:
-                raise CollectionError(
-                    f"Collector {collector_id} trả về file ngoài thư mục raw."
-                ) from exc
-            if not resolved.is_file():
-                raise CollectionError(
-                    f"Collector {collector_id} trả về file không tồn tại: "
-                    f"{resolved}"
-                )
-            output_paths.append(resolved.relative_to(case_root).as_posix())
-        return output_paths
 
     def _record_result(self, result: CollectionResult) -> None:
         paths = self.repository.paths(result.case_id)

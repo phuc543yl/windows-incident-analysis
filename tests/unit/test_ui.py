@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import queue
 import shutil
 import tempfile
+import threading
 import tkinter as tk
 import unittest
 from dataclasses import dataclass
@@ -11,7 +13,8 @@ from unittest.mock import Mock, patch
 
 from case_management.case_service import CaseService
 from common.exceptions import ProcessingError
-from ui.components.data_table import Column, DataTable, normalize_cell
+from ui.components.data_table import DataTable, normalize_cell
+from ui.components.progress_dialog import ProgressDialog
 from ui.controllers import (
     AnalysisController,
     CaseController,
@@ -20,8 +23,7 @@ from ui.controllers import (
     IntegrationController,
     ReportController,
 )
-from ui.main_window import run_dashboard
-from ui.timeline_filter import TimelineFilter, filter_timeline_events
+from ui.main_window import MainWindow, run_dashboard
 from ui.tabs import (
     AgentTab,
     AnalysisTab,
@@ -34,6 +36,7 @@ from ui.tabs import (
     TimelineTab,
 )
 from ui.tabs.case_tab import _split_values
+from ui.timeline_filter import TimelineFilter, filter_timeline_events
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 CASE_ID = "CASE-20260729-001"
@@ -153,9 +156,7 @@ class CaseControllerTests(unittest.TestCase):
         self.addCleanup(temporary_directory.cleanup)
         root = Path(temporary_directory.name)
         shutil.copytree(PROJECT_ROOT / "config", root / "config")
-        controller = CaseController(
-            service=CaseService(root, actor="analyst")
-        )
+        controller = CaseController(service=CaseService(root, actor="analyst"))
 
         context = controller.create_case(
             title="Case UI thật",
@@ -163,9 +164,7 @@ class CaseControllerTests(unittest.TestCase):
             profile_id="general_investigation",
         )
 
-        self.assertTrue(
-            Path(context["paths"]["reports"]).is_dir()
-        )
+        self.assertTrue(Path(context["paths"]["reports"]).is_dir())
         self.assertEqual(controller.current_case_id, context["case"]["case_id"])
 
 
@@ -210,6 +209,19 @@ class CollectionControllerTests(unittest.TestCase):
         self.assertEqual(
             summary,
             {"total": 3, "succeeded": 2, "failed": 1},
+        )
+
+    def test_collection_forwards_progress_callback(self) -> None:
+        service = Mock()
+        service.collect_case.return_value = []
+        report = Mock()
+        controller = CollectionController(self.case_controller, service=service)
+        controller.collect(mode="local", on_progress=report)
+        service.collect_case.assert_called_once_with(
+            CASE_ID,
+            mode="local",
+            agent_id=None,
+            on_progress=report,
         )
 
     def test_close_releases_service(self) -> None:
@@ -574,6 +586,179 @@ class MainWindowEntryPointTests(unittest.TestCase):
         )
         root.mainloop.assert_called_once_with()
         self.assertEqual(result, 0)
+
+
+class BackgroundProgressTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.window = MainWindow.__new__(MainWindow)
+        self.window.root = Mock()
+        self.window.status_bar = Mock()
+        self.window.status_bar.message_var.get.return_value = "Hoàn tất"
+        self.window.case_controller = Mock()
+        self.window._busy_tasks = 0
+        self.window._closed = False
+        self.window._task_queue = queue.Queue()
+        self.window._show_error = Mock()
+        self.dialog = Mock()
+        self.threads = []
+        real_thread = threading.Thread
+
+        def make_thread(**kwargs):
+            thread = real_thread(**kwargs)
+            self.threads.append(thread)
+            return thread
+
+        patcher = patch("ui.main_window.threading.Thread", side_effect=make_thread)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        patcher = patch("ui.main_window.ProgressDialog", return_value=self.dialog)
+        self.dialog_class = patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def start_task(self, operation, callback=None) -> None:
+        self.window._run_progress_task(
+            operation,
+            callback or Mock(),
+            "Đang chạy",
+            title="Tiến trình",
+        )
+        for thread in self.threads:
+            thread.join(timeout=2)
+            self.assertFalse(thread.is_alive())
+
+    def test_workers_enqueue_progress_and_only_ui_thread_touches_dialog(self) -> None:
+        worker_ids = []
+        callback = Mock()
+
+        def operation(report):
+            worker_ids.append(threading.get_ident())
+            report("Đang chạy evtxecmd")
+            report("Đang chuẩn hóa")
+            return {"count": 12}
+
+        self.start_task(operation, callback)
+        self.assertNotEqual(worker_ids[0], threading.get_ident())
+        self.dialog.set_message.assert_not_called()
+        callback.assert_not_called()
+        self.assertEqual(self.window._busy_tasks, 1)
+
+        self.window._poll_tasks()
+
+        self.assertEqual(
+            [call.args[0] for call in self.dialog.set_message.call_args_list],
+            ["Đang chạy evtxecmd", "Đang chuẩn hóa"],
+        )
+        callback.assert_called_once_with({"count": 12})
+        self.dialog.finish.assert_called_once_with("Hoàn tất", failed=False)
+        self.assertEqual(self.window._busy_tasks, 0)
+
+    def test_worker_error_is_kept_in_dialog_and_does_not_run_success_callback(
+        self,
+    ) -> None:
+        callback = Mock()
+
+        def operation(report):
+            report("Đang kiểm tra bằng chứng")
+            raise ValueError("Hash không khớp")
+
+        self.start_task(operation, callback)
+        self.window._poll_tasks()
+
+        callback.assert_not_called()
+        self.dialog.finish.assert_called_once_with("Lỗi: Hash không khớp", failed=True)
+        self.window._show_error.assert_not_called()
+        self.assertEqual(self.window._busy_tasks, 0)
+
+    def test_ui_callback_error_finishes_dialog_as_failed(self) -> None:
+        self.start_task(lambda report: {}, Mock(side_effect=ValueError("Lỗi tải bảng")))
+        self.window._poll_tasks()
+        self.dialog.finish.assert_called_once_with("Lỗi: Lỗi tải bảng", failed=True)
+
+    def test_busy_task_and_missing_case_do_not_open_dialog(self) -> None:
+        self.window._busy_tasks = 1
+        self.start_task(Mock())
+        self.dialog_class.assert_not_called()
+        self.window._busy_tasks = 0
+        self.window.case_controller.require_case_id.side_effect = (
+            CurrentCaseRequiredError("Chưa mở Case")
+        )
+        self.start_task(Mock())
+        self.dialog_class.assert_not_called()
+        self.window._show_error.assert_called_once()
+
+    def test_closed_window_does_not_poll_or_touch_tk(self) -> None:
+        self.window._closed = True
+        self.window._poll_tasks()
+        self.window.root.after.assert_not_called()
+        self.window.status_bar.set_busy.assert_not_called()
+
+    def test_collection_action_uses_modal_dialog_and_background_progress(self) -> None:
+        self.window.collection_controller = Mock()
+        self.window.collection_tab = Mock()
+        results = ({"collector_id": "system", "status": "succeeded"},)
+        self.window.collection_controller.summarize.return_value = {
+            "succeeded": 1,
+            "failed": 0,
+        }
+
+        def collect(**kwargs):
+            kwargs["on_progress"]("Collector 1/1: system...")
+            return results
+
+        self.window.collection_controller.collect.side_effect = collect
+        self.window._collect("agent", "AGENT-01")
+        for thread in self.threads:
+            thread.join(timeout=2)
+            self.assertFalse(thread.is_alive())
+        self.dialog.set_message.assert_not_called()
+        self.window._poll_tasks()
+        self.dialog_class.assert_called_once_with(
+            self.window.root,
+            "Đang thu thập artifact...",
+            title="Crow-Eye — Tiến trình thu thập",
+        )
+        call = self.window.collection_controller.collect.call_args
+        self.assertEqual(call.kwargs["mode"], "agent")
+        self.assertEqual(call.kwargs["agent_id"], "AGENT-01")
+        self.dialog.set_message.assert_called_once_with("Collector 1/1: system...")
+        self.window.collection_tab.set_results.assert_called_once_with(results)
+        self.dialog.finish.assert_called_once()
+
+
+class ProgressDialogTests(unittest.TestCase):
+    def setUp(self) -> None:
+        try:
+            self.root = tk.Tk()
+        except tk.TclError as exc:
+            self.skipTest(f"Không có display cho Tkinter: {exc}")
+        self.addCleanup(self.root.destroy)
+        self.root.geometry("900x600")
+        self.root.update()
+
+    def test_running_dialog_blocks_close_then_keeps_success_log(self) -> None:
+        dialog = ProgressDialog(self.root, "Bắt đầu", title="Tiến trình phân tích")
+        self.root.update()
+        self.assertEqual(dialog.grab_current(), dialog)
+        self.assertTrue(dialog.close_button.instate(("disabled",)))
+        dialog._request_close()
+        self.assertTrue(dialog.winfo_exists())
+        dialog.set_message("Đang chạy analyzer 1/6")
+        dialog.finish("Hoàn tất")
+        self.assertEqual(dialog.progress["mode"], "determinate")
+        self.assertEqual(float(dialog.progress["value"]), 100)
+        self.assertFalse(dialog.close_button.instate(("disabled",)))
+        self.assertIn("Đang chạy analyzer 1/6", dialog.log.get("1.0", tk.END))
+        self.assertIsNone(dialog._timer_id)
+        dialog._request_close()
+        self.assertFalse(dialog.winfo_exists())
+
+    def test_failed_dialog_keeps_error_and_enables_close(self) -> None:
+        dialog = ProgressDialog(self.root)
+        dialog.finish("Lỗi: thiếu dữ liệu", failed=True)
+        self.assertEqual(dialog.message_var.get(), "Lỗi: thiếu dữ liệu")
+        self.assertFalse(dialog.close_button.instate(("disabled",)))
+        self.assertNotEqual(float(dialog.progress["value"]), 100)
+        dialog.close()
 
 
 if __name__ == "__main__":

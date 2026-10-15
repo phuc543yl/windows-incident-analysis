@@ -35,6 +35,9 @@ def main(argv: list[str] | None = None) -> int:
         else root / "runtime" / "experiments"
     )
     result = run_ground_truth_suite(root)
+    print(
+        "P/R/F1 được tính theo rule trên mỗi scenario tổng hợp; không phải độ chính xác trên evidence VM thật."
+    )
     json_path, csv_path = write_ground_truth_results(result, output)
 
     for item in result.results:

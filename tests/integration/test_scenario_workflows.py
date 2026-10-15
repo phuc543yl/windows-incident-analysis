@@ -7,8 +7,11 @@ import unittest
 from pathlib import Path, PurePosixPath
 
 from analysis.analysis_service import AnalysisService
+from analysis.investigation.checklist import ChecklistService
 from case_management.case_service import CaseService
 from common.enums import IncidentStatus
+from common.json_utils import write_json
+from evidence.evidence_service import EvidenceService
 from integrations.parsers.evtxecmd_parser import EvtxECmdParser
 from integrations.parsers.hayabusa_parser import HayabusaParser
 from processing.processing_pipeline import ProcessingPipeline
@@ -19,9 +22,7 @@ SCENARIOS = FIXTURES / "scenarios"
 
 
 def load_scenario(name: str) -> dict:
-    return json.loads(
-        (SCENARIOS / f"{name}.json").read_text(encoding="utf-8")
-    )
+    return json.loads((SCENARIOS / f"{name}.json").read_text(encoding="utf-8"))
 
 
 class ScenarioWorkflowTests(unittest.TestCase):
@@ -40,6 +41,9 @@ class ScenarioWorkflowTests(unittest.TestCase):
             target_hostname="WIN-LAB01",
             profile_id=scenario["profile_id"],
         )
+        paths = CaseService(root).repository.paths(case.case_id)
+        write_json(paths.raw / "Files" / "scenario_input.json", scenario)
+        EvidenceService(root).preserve_case(case.case_id)
         processing = ProcessingPipeline(
             root,
             actor="integration-test",
@@ -79,9 +83,7 @@ class ScenarioWorkflowTests(unittest.TestCase):
                     len(scenario["records"]),
                 )
                 rule_ids = {alert.rule_id for alert in analysis.alerts}
-                self.assertTrue(
-                    set(scenario["expected_rule_ids"]).issubset(rule_ids)
-                )
+                self.assertTrue(set(scenario["expected_rule_ids"]).issubset(rule_ids))
                 incident = next(
                     item
                     for item in analysis.incidents
@@ -92,6 +94,14 @@ class ScenarioWorkflowTests(unittest.TestCase):
                 self.assertEqual(incident.cia_impacts, ())
                 self.assertTrue(incident.timeline_event_ids)
 
+                checklist = ChecklistService(root)
+                checklist.save(
+                    case.case_id,
+                    [
+                        {**item, "done": True}
+                        for item in checklist.load(case.case_id)["items"]
+                    ],
+                )
                 confirmed = AnalysisService(
                     root,
                     actor="integration-test",
@@ -99,12 +109,8 @@ class ScenarioWorkflowTests(unittest.TestCase):
                     case.case_id,
                     incident.incident_id,
                     IncidentStatus.CONFIRMED,
-                    conclusion=(
-                        "Xác nhận từ fixture tổng hợp trong integration test."
-                    ),
-                    cia_impacts=tuple(
-                        scenario["confirmation_cia_impacts"]
-                    ),
+                    conclusion=("Xác nhận từ fixture tổng hợp trong integration test."),
+                    cia_impacts=tuple(scenario["confirmation_cia_impacts"]),
                 )
                 self.assertIs(
                     confirmed.status,
@@ -121,9 +127,7 @@ class ScenarioWorkflowTests(unittest.TestCase):
                 scenario = json.loads(path.read_text(encoding="utf-8"))
                 self.assertEqual(scenario["schema_version"], 1)
                 self.assertTrue(scenario["records"])
-                record_ids = [
-                    record["record_id"] for record in scenario["records"]
-                ]
+                record_ids = [record["record_id"] for record in scenario["records"]]
                 self.assertEqual(len(record_ids), len(set(record_ids)))
                 for record in scenario["records"]:
                     self.assertNotIn("case_id", record)
@@ -139,16 +143,18 @@ class ScenarioWorkflowTests(unittest.TestCase):
             profile_id="account_compromise",
         )
         records = EvtxECmdParser().parse(
-            FIXTURES
-            / "tool_outputs"
-            / "evtxecmd_account_compromise.csv",
+            FIXTURES / "tool_outputs" / "evtxecmd_account_compromise.csv",
             case_id=case.case_id,
             hostname="WIN-LAB01",
-            raw_reference=(
-                "analysis/tool_outputs/evtxecmd/account_compromise.csv"
-            ),
+            raw_reference=("analysis/tool_outputs/evtxecmd/account_compromise.csv"),
         )
 
+        paths = CaseService(root).repository.paths(case.case_id)
+        shutil.copy2(
+            FIXTURES / "tool_outputs" / "evtxecmd_account_compromise.csv",
+            paths.raw / "Files" / "evtxecmd_account_compromise.csv",
+        )
+        EvidenceService(root).preserve_case(case.case_id)
         ProcessingPipeline(root).process(
             case_id=case.case_id,
             records=records,
@@ -166,10 +172,7 @@ class ScenarioWorkflowTests(unittest.TestCase):
         )
         self.assertIn(
             "account_compromise",
-            {
-                incident.details.get("incident_type")
-                for incident in result.incidents
-            },
+            {incident.details.get("incident_type") for incident in result.incidents},
         )
 
     def test_hayabusa_csv_preserves_multiple_detection_contexts(self) -> None:

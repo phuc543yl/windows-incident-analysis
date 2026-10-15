@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from case_management.case_repository import CaseRepository
+from common.exceptions import AnalysisError
 from common.json_utils import read_json_object, write_json
 from common.paths import config_dir
 
@@ -51,12 +52,15 @@ class ChecklistService:
     def load(self, case_id: str) -> dict[str, Any]:
         case = self.repository.load_case(case_id)
         path = self.repository.paths(case.case_id).checklist_json
+        expected = self._items_for(case.profile_id)
+        saved: dict[str, bool] = {}
         if path.is_file():
-            return read_json_object(path)
-        items = [
-            {"text": text, "done": False}
-            for text in self._items_for(case.profile_id)
-        ]
+            payload = read_json_object(path)
+            if payload.get("case_id") != case.case_id:
+                raise AnalysisError("Checklist không khớp Case.")
+            self._validate_items(payload.get("items"))
+            saved = {item["text"]: item["done"] for item in payload["items"]}
+        items = [{"text": text, "done": saved.get(text, False)} for text in expected]
         return {
             "schema_version": 1,
             "case_id": case.case_id,
@@ -70,6 +74,10 @@ class ChecklistService:
         items: list[dict[str, Any]],
     ) -> dict[str, Any]:
         case = self.repository.require_open(case_id)
+        self._validate_items(items)
+        expected = self._items_for(case.profile_id)
+        if {item["text"] for item in items} != set(expected):
+            raise AnalysisError("Checklist phải có đầy đủ các mục của profile.")
         payload = {
             "schema_version": 1,
             "case_id": case.case_id,
@@ -78,6 +86,31 @@ class ChecklistService:
         }
         write_json(self.repository.paths(case.case_id).checklist_json, payload)
         return payload
+
+    def require_complete(self, case_id: str) -> None:
+        items = self.load(case_id)["items"]
+        pending = [item["text"] for item in items if item["done"] is not True]
+        if not items or pending:
+            raise AnalysisError(
+                "Hãy hoàn thành và lưu checklist trước khi Confirmed. "
+                + "; ".join(pending)
+            )
+
+    @staticmethod
+    def _validate_items(items: Any) -> None:
+        if not isinstance(items, list) or not items:
+            raise AnalysisError("Checklist phải có danh sách mục không rỗng.")
+        seen: set[str] = set()
+        for item in items:
+            if (
+                not isinstance(item, dict)
+                or not isinstance(item.get("text"), str)
+                or not item["text"].strip()
+                or not isinstance(item.get("done"), bool)
+                or item["text"] in seen
+            ):
+                raise AnalysisError("Mục checklist không hợp lệ hoặc trùng lặp.")
+            seen.add(item["text"])
 
     def _items_for(self, profile_id: str) -> tuple[str, ...]:
         configured = config_dir(self.repository.project) / (

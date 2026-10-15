@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from models.alert import Alert
 from analysis.correlation.base import CorrelationMatch
+from analysis.correlation.entities import related_endpoint
+from models.alert import Alert
 
 _COMPANION_RULES = {
     "suspicious_powershell",
@@ -19,11 +20,7 @@ class LogTamperingCorrelation:
         self,
         alerts: tuple[Alert, ...],
     ) -> tuple[CorrelationMatch, ...]:
-        companions = [
-            alert
-            for alert in alerts
-            if alert.rule_id in _COMPANION_RULES
-        ]
+        companions = [alert for alert in alerts if alert.rule_id in _COMPANION_RULES]
         matches: list[CorrelationMatch] = []
         for alert in alerts:
             if alert.rule_id != "security_log_cleared":
@@ -31,10 +28,9 @@ class LogTamperingCorrelation:
             related = tuple(
                 companion
                 for companion in companions
-                if abs(
-                    (companion.created_at - alert.created_at).total_seconds()
-                )
+                if abs((companion.created_at - alert.created_at).total_seconds())
                 <= timedelta(minutes=30).total_seconds()
+                and related_endpoint(alert, companion)
             )
             matches.append(
                 CorrelationMatch(
@@ -51,9 +47,7 @@ class LogTamperingCorrelation:
                     ),
                     details={
                         "event_id": alert.details.get("event_id"),
-                        "companion_rule_ids": tuple(
-                            item.rule_id for item in related
-                        ),
+                        "companion_rule_ids": tuple(item.rule_id for item in related),
                         "integrity_impact_requires_confirmation": True,
                     },
                 )

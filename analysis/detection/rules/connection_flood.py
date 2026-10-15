@@ -7,11 +7,11 @@ from collections import defaultdict
 from datetime import timedelta
 from typing import Any
 
+from analysis.detection.rules.base_rule import BaseRule
+from analysis.helpers import attribute
 from models.alert import Alert
 from models.finding import Finding
 from models.normalized_record import NormalizedRecord
-from analysis.detection.rules.base_rule import BaseRule
-from analysis.helpers import attribute
 
 
 class ConnectionFloodRule(BaseRule):
@@ -110,6 +110,17 @@ class ConnectionFloodRule(BaseRule):
                             "episode_start": episode[0].timestamp,
                             "episode_end": episode[-1].timestamp,
                             "connection_states": states,
+                            "observation_timestamp_count": len(
+                                {record.timestamp for record in episode}
+                            ),
+                            "measurement_type": "concurrent_snapshot"
+                            if all(
+                                record.source_type.casefold() == "live_network"
+                                for record in episode
+                            )
+                            and len({record.timestamp for record in episode}) == 1
+                            else "temporal_observations",
+                            "baseline_compared": False,
                             "availability_impact_requires_confirmation": True,
                         },
                         indicator_hits=1,
@@ -166,11 +177,7 @@ def _valid_remote_ip(value: str) -> bool:
         address = ipaddress.ip_address(value)
     except ValueError:
         return False
-    return not (
-        address.is_unspecified
-        or address.is_loopback
-        or address.is_multicast
-    )
+    return not (address.is_unspecified or address.is_loopback or address.is_multicast)
 
 
 def _port(value: Any) -> int | None:

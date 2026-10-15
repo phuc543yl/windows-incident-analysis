@@ -1,27 +1,12 @@
 from __future__ import annotations
 
-import json
 import shutil
 import tempfile
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
-from case_management.audit_logger import AuditLogger
-from case_management.case_service import CaseService
-from common.enums import (
-    ArtifactType,
-    CIAImpact,
-    FindingSeverity,
-    IncidentStatus,
-)
-from common.exceptions import AnalysisError, CaseClosedError
-from common.json_utils import read_json_object, write_json
-from models.normalized_record import NormalizedRecord
-from processing.processing_pipeline import ProcessingPipeline
-from processing.timeline_builder import TimelineBuilder
 from analysis.analysis_service import AnalysisService
-from analysis.history_service import AnalysisHistoryService
 from analysis.analyzers import (
     DEFAULT_ANALYZERS,
     EventAnalyzer,
@@ -33,6 +18,22 @@ from analysis.analyzers import (
 )
 from analysis.correlation import CorrelationEngine
 from analysis.detection import MitreMapper, RiskEngine, RuleEngine
+from analysis.history_service import AnalysisHistoryService
+from analysis.investigation.checklist import ChecklistService
+from case_management.audit_logger import AuditLogger
+from case_management.case_service import CaseService
+from common.enums import (
+    ArtifactType,
+    CIAImpact,
+    FindingSeverity,
+    IncidentStatus,
+)
+from common.exceptions import AnalysisError, CaseClosedError
+from common.json_utils import read_json_object, write_json
+from evidence.evidence_service import EvidenceService
+from models.normalized_record import NormalizedRecord
+from processing.processing_pipeline import ProcessingPipeline
+from processing.timeline_builder import TimelineBuilder
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
@@ -53,6 +54,11 @@ class AnalysisTestCase(unittest.TestCase):
             profile_id="general_investigation",
         )
         self.paths = self.service.repository.paths(self.case.case_id)
+        write_json(
+            self.paths.raw / "Files" / "unit_test_input.json",
+            {"source": "synthetic unit test"},
+        )
+        EvidenceService(self.temp_path).preserve_case(self.case.case_id)
 
     def record(
         self,
@@ -127,11 +133,7 @@ class AnalysisTestCase(unittest.TestCase):
             process_name="powershell.exe",
             process_id=1200,
             parent_process_id=800,
-            attributes={
-                "CommandLine": (
-                    "powershell.exe -EncodedCommand SQBFAFgA"
-                )
-            },
+            attributes={"CommandLine": ("powershell.exe -EncodedCommand SQBFAFgA")},
         )
         autorun = self.record(
             minute=7,
@@ -182,6 +184,8 @@ class AnalysisTestCase(unittest.TestCase):
             attributes={
                 "ServiceName": "ImportantService",
                 "State": "stopped",
+                "authorized": False,
+                "downtime_seconds": 120,
             },
         )
         service_change = self.record(
@@ -285,19 +289,13 @@ class AnalyzerTests(AnalysisTestCase):
         cases = (
             (
                 RegistryAnalyzer(),
-                next(
-                    record
-                    for record in records
-                    if record.record_id == "REC-AUTORUN"
-                ),
+                next(record for record in records if record.record_id == "REC-AUTORUN"),
                 "T1547.001",
             ),
             (
                 ExecutionAnalyzer(),
                 next(
-                    record
-                    for record in records
-                    if record.record_id == "REC-EXECUTION"
+                    record for record in records if record.record_id == "REC-EXECUTION"
                 ),
                 "T1204.002",
             ),
@@ -441,12 +439,8 @@ class DetectionRuleTests(AnalysisTestCase):
                 "service_configuration_changed",
             },
         )
-        self.assertTrue(
-            all(alert.mitre_techniques for alert in alerts)
-        )
-        self.assertTrue(
-            all("mitre_mapping" in alert.details for alert in alerts)
-        )
+        self.assertTrue(all(alert.mitre_techniques for alert in alerts))
+        self.assertTrue(all("mitre_mapping" in alert.details for alert in alerts))
 
     def test_failed_logon_rule_respects_threshold_and_window(self) -> None:
         engine = RuleEngine(self.temp_path)
@@ -580,9 +574,7 @@ class DetectionRuleTests(AnalysisTestCase):
         records = list(self.incident_records()[:6])
         success = records[-1]
         success.attributes["LogonType"] = 3
-        rule = RuleEngine(self.temp_path).get(
-            "successful_logon_after_failures"
-        )
+        rule = RuleEngine(self.temp_path).get("successful_logon_after_failures")
 
         alerts = rule.evaluate(tuple(records))
 
@@ -595,9 +587,7 @@ class DetectionRuleTests(AnalysisTestCase):
             if item.record_id == "REC-POWERSHELL"
         )
         finding = ProcessAnalyzer().analyze((record,))[0]
-        rule = RuleEngine(self.temp_path).get(
-            "suspicious_powershell"
-        )
+        rule = RuleEngine(self.temp_path).get("suspicious_powershell")
 
         first = rule.evaluate((record,), (finding,))[0]
         second = rule.evaluate((record,), (finding,))[0]
@@ -607,9 +597,7 @@ class DetectionRuleTests(AnalysisTestCase):
         self.assertGreaterEqual(first.risk_score, 80)
 
     def test_rule_engine_rejects_unknown_rule_configuration(self) -> None:
-        config = read_json_object(
-            self.temp_path / "config" / "detection_rules.json"
-        )
+        config = read_json_object(self.temp_path / "config" / "detection_rules.json")
         config["rules"][0]["id"] = "not_implemented"
         path = self.temp_path / "bad-rules.json"
         write_json(path, config)
@@ -649,14 +637,9 @@ class CorrelationTests(AnalysisTestCase):
             },
         )
         self.assertTrue(
-            all(
-                incident.status is IncidentStatus.SUSPECTED
-                for incident in incidents
-            )
+            all(incident.status is IncidentStatus.SUSPECTED for incident in incidents)
         )
-        self.assertTrue(
-            all(not incident.cia_impacts for incident in incidents)
-        )
+        self.assertTrue(all(not incident.cia_impacts for incident in incidents))
 
     def test_incidents_link_alert_findings_and_timeline(self) -> None:
         _, timeline, findings, alerts = self.alerts_and_context()
@@ -669,8 +652,7 @@ class CorrelationTests(AnalysisTestCase):
         account = next(
             incident
             for incident in incidents
-            if incident.details["incident_type"]
-            == "account_compromise"
+            if incident.details["incident_type"] == "account_compromise"
         )
 
         self.assertTrue(account.alert_ids)
@@ -678,14 +660,8 @@ class CorrelationTests(AnalysisTestCase):
         # not expanded into one Finding per event.
         self.assertEqual(account.finding_ids, ())
         self.assertTrue(account.timeline_event_ids)
-        known_timeline_ids = {
-            event.timeline_event_id for event in timeline
-        }
-        self.assertTrue(
-            set(account.timeline_event_ids).issubset(
-                known_timeline_ids
-            )
-        )
+        known_timeline_ids = {event.timeline_event_id for event in timeline}
+        self.assertTrue(set(account.timeline_event_ids).issubset(known_timeline_ids))
 
     def test_correlation_is_deterministic_and_rejects_mixed_cases(self) -> None:
         _, timeline, findings, alerts = self.alerts_and_context()
@@ -736,9 +712,7 @@ class CorrelationTests(AnalysisTestCase):
             )
             for index in range(100)
         )
-        alert = RuleEngine(self.temp_path).get(
-            "connection_flood"
-        ).evaluate(records)[0]
+        alert = RuleEngine(self.temp_path).get("connection_flood").evaluate(records)[0]
 
         incidents = CorrelationEngine().correlate((alert,))
 
@@ -747,12 +721,38 @@ class CorrelationTests(AnalysisTestCase):
         self.assertEqual(incident.details["incident_type"], "dos_attack")
         self.assertEqual(incident.status, IncidentStatus.SUSPECTED)
         self.assertEqual(incident.cia_impacts, ())
-        self.assertTrue(
-            incident.details["availability_impact_requires_confirmation"]
-        )
+        self.assertTrue(incident.details["availability_impact_requires_confirmation"])
 
 
 class AnalysisServiceTests(AnalysisTestCase):
+    def test_progress_reports_real_analysis_stages_without_changing_results(
+        self,
+    ) -> None:
+        service = AnalysisService(self.temp_path)
+        records = self.incident_records()
+        expected = service.analyze(
+            case_id=self.case.case_id,
+            records=records,
+            persist=False,
+        )
+        messages = []
+        result = service.analyze(
+            case_id=self.case.case_id,
+            records=records,
+            persist=False,
+            on_progress=messages.append,
+        )
+
+        self.assertEqual(result.finding_count, expected.finding_count)
+        self.assertEqual(result.alert_count, expected.alert_count)
+        self.assertEqual(result.incident_count, expected.incident_count)
+        self.assertIn("tải dữ liệu", messages[0])
+        for analyzer in service.analyzers:
+            self.assertTrue(any(analyzer.analyzer_id in msg for msg in messages))
+        self.assertTrue(any("quy tắc phát hiện" in msg for msg in messages))
+        self.assertTrue(any("tương quan" in msg for msg in messages))
+        self.assertIn("Phân tích hoàn tất", messages[-1])
+
     def test_service_uses_only_rules_selected_by_case_profile(self) -> None:
         account_case = self.service.create_case(
             title="Account profile analysis",
@@ -785,10 +785,7 @@ class AnalysisServiceTests(AnalysisTestCase):
             },
         )
         self.assertEqual(
-            {
-                incident.details["incident_type"]
-                for incident in result.incidents
-            },
+            {incident.details["incident_type"] for incident in result.incidents},
             {"account_compromise"},
         )
 
@@ -902,9 +899,9 @@ class AnalysisServiceTests(AnalysisTestCase):
             set(metadata["files"]),
             {"findings.json", "alerts.json", "incidents.json"},
         )
-        versions = AnalysisHistoryService(
-            self.temp_path
-        ).list_versions(self.case.case_id)
+        versions = AnalysisHistoryService(self.temp_path).list_versions(
+            self.case.case_id
+        )
         self.assertEqual(versions, (version_path,))
         actions = [
             entry["action"]
@@ -934,9 +931,7 @@ class AnalysisServiceTests(AnalysisTestCase):
         )
 
         self.assertEqual(
-            AnalysisHistoryService(self.temp_path).list_versions(
-                self.case.case_id
-            ),
+            AnalysisHistoryService(self.temp_path).list_versions(self.case.case_id),
             (),
         )
 
@@ -982,6 +977,14 @@ class AnalysisServiceTests(AnalysisTestCase):
                 conclusion="Đã xác nhận.",
             )
 
+        checklist = ChecklistService(self.temp_path)
+        checklist.save(
+            self.case.case_id,
+            [
+                {**item, "done": True}
+                for item in checklist.load(self.case.case_id)["items"]
+            ],
+        )
         confirmed = service.set_incident_status(
             self.case.case_id,
             incident.incident_id,
@@ -1040,9 +1043,7 @@ class AnalysisServiceTests(AnalysisTestCase):
         with self.assertRaisesRegex(AnalysisError, "khác Case"):
             service.analyze(
                 case_id=self.case.case_id,
-                records=(
-                    self.record(case_id="CASE-20260729-999"),
-                ),
+                records=(self.record(case_id="CASE-20260729-999"),),
                 timeline=(),
             )
 

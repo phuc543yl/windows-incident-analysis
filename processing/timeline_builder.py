@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import hashlib
+from collections import defaultdict
+from collections.abc import Iterable
+from dataclasses import replace
 from datetime import datetime
-from typing import Iterable
 
 from common.enums import ArtifactType
 from common.exceptions import ProcessingError
 from common.time_utils import parse_timestamp
+from models.alert import Alert
+from models.finding import Finding
 from models.normalized_record import NormalizedRecord
 from models.timeline_event import TimelineEvent
 
@@ -27,6 +31,47 @@ _SORT_PRIORITY = {
 
 
 class TimelineBuilder:
+    def link_analysis(
+        self,
+        timeline: Iterable[TimelineEvent],
+        *,
+        findings: Iterable[Finding],
+        alerts: Iterable[Alert],
+    ) -> tuple[TimelineEvent, ...]:
+        """Replace old result links using the current source-record IDs."""
+        findings_by_record: dict[str, set[str]] = defaultdict(set)
+        alerts_by_record: dict[str, set[str]] = defaultdict(set)
+        for finding in findings:
+            for record_id in finding.source_record_ids:
+                findings_by_record[record_id].add(finding.finding_id)
+        for alert in alerts:
+            for record_id in alert.source_record_ids:
+                alerts_by_record[record_id].add(alert.alert_id)
+        return tuple(
+            replace(
+                event,
+                finding_ids=tuple(
+                    sorted(
+                        {
+                            finding_id
+                            for record_id in event.source_record_ids
+                            for finding_id in findings_by_record[record_id]
+                        }
+                    )
+                ),
+                alert_ids=tuple(
+                    sorted(
+                        {
+                            alert_id
+                            for record_id in event.source_record_ids
+                            for alert_id in alerts_by_record[record_id]
+                        }
+                    )
+                ),
+            )
+            for event in timeline
+        )
+
     def build(
         self,
         records: Iterable[NormalizedRecord],
@@ -34,18 +79,14 @@ class TimelineBuilder:
         start: datetime | str | None = None,
         end: datetime | str | None = None,
     ) -> tuple[TimelineEvent, ...]:
-        normalized_start = (
-            parse_timestamp(start) if start is not None else None
-        )
+        normalized_start = parse_timestamp(start) if start is not None else None
         normalized_end = parse_timestamp(end) if end is not None else None
         if (
             normalized_start is not None
             and normalized_end is not None
             and normalized_start > normalized_end
         ):
-            raise ProcessingError(
-                "Khoảng thời gian timeline không hợp lệ."
-            )
+            raise ProcessingError("Khoảng thời gian timeline không hợp lệ.")
 
         events: list[TimelineEvent] = []
         id_occurrences: dict[str, int] = {}
@@ -56,13 +97,8 @@ class TimelineBuilder:
             if case_id is None:
                 case_id = record.case_id
             elif record.case_id != case_id:
-                raise ProcessingError(
-                    "Không thể tạo timeline từ nhiều Case."
-                )
-            if (
-                normalized_start is not None
-                and record.timestamp < normalized_start
-            ):
+                raise ProcessingError("Không thể tạo timeline từ nhiều Case.")
+            if normalized_start is not None and record.timestamp < normalized_start:
                 continue
             if normalized_end is not None and record.timestamp > normalized_end:
                 continue
@@ -105,8 +141,6 @@ class TimelineBuilder:
 
 def _timeline_id(record: NormalizedRecord, occurrence: int) -> str:
     digest = hashlib.sha256(
-        (
-            f"{record.case_id}\0{record.record_id}\0{occurrence}"
-        ).encode("utf-8")
+        (f"{record.case_id}\0{record.record_id}\0{occurrence}").encode("utf-8")
     ).hexdigest()
     return f"TL-{digest[:32]}"

@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from models.alert import Alert
 from analysis.correlation.base import CorrelationMatch
+from analysis.correlation.entities import related_endpoint
+from models.alert import Alert
 
 
 class AccountCompromiseCorrelation:
@@ -13,35 +14,22 @@ class AccountCompromiseCorrelation:
         self,
         alerts: tuple[Alert, ...],
     ) -> tuple[CorrelationMatch, ...]:
-        failures = [
-            alert
-            for alert in alerts
-            if alert.rule_id == "failed_logon_burst"
-        ]
+        failures = [alert for alert in alerts if alert.rule_id == "failed_logon_burst"]
         matches: list[CorrelationMatch] = []
         for success in alerts:
             if success.rule_id != "successful_logon_after_failures":
                 continue
-            user = str(
-                success.details.get("target_user", "")
-            ).casefold()
-            address = str(
-                success.details.get("source_ip", "")
-            ).casefold()
+            user = str(success.details.get("target_user", "")).casefold()
+            address = str(success.details.get("source_ip", "")).casefold()
             related = [
                 failure
                 for failure in failures
                 if success.created_at - timedelta(minutes=30)
                 <= failure.created_at
                 <= success.created_at
-                and str(
-                    failure.details.get("target_user", "")
-                ).casefold()
-                == user
-                and str(
-                    failure.details.get("source_ip", "")
-                ).casefold()
-                == address
+                and str(failure.details.get("target_user", "")).casefold() == user
+                and str(failure.details.get("source_ip", "")).casefold() == address
+                and related_endpoint(success, failure)
             ]
             matched_alerts = tuple((*related, success))
             matches.append(

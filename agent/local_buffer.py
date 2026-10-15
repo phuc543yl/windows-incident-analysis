@@ -38,6 +38,7 @@ class AgentTask:
     bundle_available: bool = False
     transferred_at: datetime | None = None
     error: str = ""
+    progress_message: str = ""
 
     def __post_init__(self) -> None:
         if not self.task_id.startswith("TASK-"):
@@ -48,23 +49,17 @@ class AgentTask:
         self.collection_plan = dict(self.collection_plan)
         self.created_at = parse_timestamp(self.created_at)
         self.started_at = (
-            parse_timestamp(self.started_at)
-            if self.started_at is not None
-            else None
+            parse_timestamp(self.started_at) if self.started_at is not None else None
         )
         self.finished_at = (
-            parse_timestamp(self.finished_at)
-            if self.finished_at is not None
-            else None
+            parse_timestamp(self.finished_at) if self.finished_at is not None else None
         )
         self.transferred_at = (
             parse_timestamp(self.transferred_at)
             if self.transferred_at is not None
             else None
         )
-        self.collection_results = tuple(
-            dict(item) for item in self.collection_results
-        )
+        self.collection_results = tuple(dict(item) for item in self.collection_results)
 
     def to_dict(self) -> dict[str, Any]:
         return to_json_value(self)
@@ -78,17 +73,14 @@ class AgentTask:
             created_at=data.get("created_at") or utc_now(),
             started_at=data.get("started_at"),
             finished_at=data.get("finished_at"),
-            collection_results=tuple(
-                data.get("collection_results", ())
-            ),
+            collection_results=tuple(data.get("collection_results", ())),
             bundle_path=data.get("bundle_path"),
             bundle_sha256=data.get("bundle_sha256"),
             bundle_size_bytes=data.get("bundle_size_bytes"),
-            bundle_available=bool(
-                data.get("bundle_available", False)
-            ),
+            bundle_available=bool(data.get("bundle_available", False)),
             transferred_at=data.get("transferred_at"),
             error=data.get("error", ""),
+            progress_message=str(data.get("progress_message") or ""),
         )
 
 
@@ -102,21 +94,13 @@ class LocalBuffer:
     ) -> None:
         candidate = Path(root).expanduser()
         if candidate.is_symlink():
-            raise AgentError(
-                "Agent buffer không được là symbolic link."
-            )
+            raise AgentError("Agent buffer không được là symbolic link.")
         self.root = candidate.resolve()
         self.root.mkdir(parents=True, exist_ok=True)
-        self.delete_after_successful_transfer = bool(
-            delete_after_successful_transfer
-        )
-        self.retention_hours_on_failure = float(
-            retention_hours_on_failure
-        )
+        self.delete_after_successful_transfer = bool(delete_after_successful_transfer)
+        self.retention_hours_on_failure = float(retention_hours_on_failure)
         if self.retention_hours_on_failure <= 0:
-            raise ValueError(
-                "retention_hours_on_failure phải là số dương."
-            )
+            raise ValueError("retention_hours_on_failure phải là số dương.")
         self._lock = threading.RLock()
 
     def create(self, collection_plan: dict[str, Any]) -> AgentTask:
@@ -137,14 +121,10 @@ class LocalBuffer:
             return AgentTask.from_dict(read_json_object(path))
         except JsonFileError as exc:
             if not path.exists():
-                raise AgentError(
-                    f"Không tìm thấy Agent task: {task_id}"
-                ) from exc
+                raise AgentError(f"Không tìm thấy Agent task: {task_id}") from exc
             raise AgentError(str(exc)) from exc
         except (KeyError, TypeError, ValueError) as exc:
-            raise AgentError(
-                f"Agent task {task_id} không hợp lệ: {exc}"
-            ) from exc
+            raise AgentError(f"Agent task {task_id} không hợp lệ: {exc}") from exc
 
     def list(self) -> tuple[AgentTask, ...]:
         tasks: list[AgentTask] = []
@@ -167,7 +147,17 @@ class LocalBuffer:
             expected={"queued"},
             status="running",
             started_at=utc_now(),
+            progress_message="Đang khởi động thu thập...",
         )
+
+    def set_progress(self, task_id: str, message: str) -> AgentTask:
+        with self._lock:
+            task = self.get(task_id)
+            if task.status != "running":
+                raise AgentError("Chỉ task đang chạy mới được cập nhật tiến trình.")
+            task.progress_message = _safe_error(message)
+            self._save(task)
+            return task
 
     def mark_completed(
         self,
@@ -197,6 +187,7 @@ class LocalBuffer:
             bundle_size_bytes=bundle_size_bytes,
             bundle_available=True,
             error="",
+            progress_message="Đã thu thập và tạo Evidence Bundle.",
         )
 
     def mark_failed(self, task_id: str, error: str) -> AgentTask:
@@ -206,6 +197,7 @@ class LocalBuffer:
             status="failed",
             finished_at=utc_now(),
             error=_safe_error(error),
+            progress_message="Thu thập thất bại.",
             bundle_available=False,
         )
 
@@ -216,9 +208,7 @@ class LocalBuffer:
             or not task.bundle_available
             or not task.bundle_path
         ):
-            raise AgentError(
-                f"Bundle chưa sẵn sàng cho task {task_id}."
-            )
+            raise AgentError(f"Bundle chưa sẵn sàng cho task {task_id}.")
         candidate = self.task_directory(task_id).joinpath(
             *task.bundle_path.replace("\\", "/").split("/")
         )
@@ -253,9 +243,7 @@ class LocalBuffer:
         *,
         now: datetime | None = None,
     ) -> tuple[str, ...]:
-        cutoff = (now or utc_now()) - timedelta(
-            hours=self.retention_hours_on_failure
-        )
+        cutoff = (now or utc_now()) - timedelta(hours=self.retention_hours_on_failure)
         removed: list[str] = []
         with self._lock:
             for task in self.list():
@@ -271,9 +259,7 @@ class LocalBuffer:
         normalized = _task_id(task_id)
         candidate = self.root / normalized
         if candidate.is_symlink():
-            raise AgentError(
-                "Task directory không được là symbolic link."
-            )
+            raise AgentError("Task directory không được là symbolic link.")
         resolved = candidate.resolve()
         try:
             resolved.relative_to(self.root)
@@ -287,9 +273,7 @@ class LocalBuffer:
     def workspace(self, task_id: str) -> Path:
         candidate = self.task_directory(task_id) / "workspace"
         if candidate.is_symlink():
-            raise AgentError(
-                "Task workspace không được là symbolic link."
-            )
+            raise AgentError("Task workspace không được là symbolic link.")
         return candidate
 
     def _transition(
@@ -321,10 +305,7 @@ def _task_id(value: str) -> str:
         not isinstance(value, str)
         or not value.startswith("TASK-")
         or len(value) != 37
-        or any(
-            character not in "0123456789abcdef"
-            for character in value[5:]
-        )
+        or any(character not in "0123456789abcdef" for character in value[5:])
     ):
         raise AgentError("task_id không hợp lệ.")
     return value

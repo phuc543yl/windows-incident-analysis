@@ -1,0 +1,54 @@
+{
+  "tested_repository": "phuc543yl/windows-incident-analysis",
+  "tested_commit": "9861df66fb81dd41103e864c5634133449154184",
+  "environment": "Python on Linux; core services only; Windows GUI and EVTX parsers not exercised",
+  "results": [
+    {
+      "scenario_id": "full",
+      "record_count": 122,
+      "status": "PASS",
+      "checks": {
+        "alert_count": true,
+        "alert_record_links": true,
+        "baseline_changed_as_expected": true,
+        "incident_count": true,
+        "incident_types": true,
+        "incidents_suspected": true,
+        "no_confirmed_cia": true,
+        "normalized_count": true,
+        "rule_ids": true,
+        "source_references_exist": true,
+        "timeline_count": true
+      }
+    },
+    {
+      "scenario_id": "normal",
+      "record_count": 11,
+      "status": "PASS",
+      "checks": {
+        "alert_count": true,
+        "alert_record_links": true,
+        "baseline_changed_as_expected": true,
+        "incident_count": true,
+        "incident_types": true,
+        "incidents_suspected": true,
+        "no_confirmed_cia": true,
+        "normalized_count": true,
+        "rule_ids": true,
+        "source_references_exist": true,
+        "timeline_count": true
+      }
+    },
+    {
+      "scenario_id": "full",
+      "record_count": 122,
+      "status": "PREPARED",
+      "checks": {
+        "baseline_changed_as_expected": true,
+        "normalized_count": true,
+        "source_references_exist": true,
+        "timeline_count": true
+      }
+    }
+  ]
+}

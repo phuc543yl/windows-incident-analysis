@@ -1,0 +1,2223 @@
+{
+  "schema_version": 1,
+  "scenario_id": "full",
+  "title": "[SYNTHETIC] Full incident chain",
+  "target_hostname": "WIN8-DEMO",
+  "profile_id": "general_investigation",
+  "synthetic": true,
+  "expected": {
+    "rule_ids": [
+      "failed_logon_burst",
+      "successful_logon_after_failures",
+      "suspicious_powershell",
+      "scheduled_task_created",
+      "service_configuration_changed",
+      "file_integrity_change",
+      "connection_flood",
+      "service_probe_failed"
+    ],
+    "alert_count": 8,
+    "incident_types": [
+      "account_compromise",
+      "endpoint_compromise",
+      "dos_attack"
+    ],
+    "incident_count": 3
+  },
+  "records": [
+    {
+      "record_id": "REC-SAMPLE-RDP-FAIL-1",
+      "source_type": "event_log",
+      "artifact_type": "event_logs",
+      "timestamp": "2026-09-29T13:00:00Z",
+      "summary": "[SYNTHETIC] RDP-FAIL-1",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "TargetUserName": "labuser",
+        "IpAddress": "192.0.2.10",
+        "LogonType": 10
+      },
+      "event_id": 4625,
+      "user": "labuser",
+      "source_ip": "192.0.2.10"
+    },
+    {
+      "record_id": "REC-SAMPLE-RDP-FAIL-2",
+      "source_type": "event_log",
+      "artifact_type": "event_logs",
+      "timestamp": "2026-09-29T13:00:20Z",
+      "summary": "[SYNTHETIC] RDP-FAIL-2",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "TargetUserName": "labuser",
+        "IpAddress": "192.0.2.10",
+        "LogonType": 10
+      },
+      "event_id": 4625,
+      "user": "labuser",
+      "source_ip": "192.0.2.10"
+    },
+    {
+      "record_id": "REC-SAMPLE-RDP-FAIL-3",
+      "source_type": "event_log",
+      "artifact_type": "event_logs",
+      "timestamp": "2026-09-29T13:00:40Z",
+      "summary": "[SYNTHETIC] RDP-FAIL-3",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "TargetUserName": "labuser",
+        "IpAddress": "192.0.2.10",
+        "LogonType": 10
+      },
+      "event_id": 4625,
+      "user": "labuser",
+      "source_ip": "192.0.2.10"
+    },
+    {
+      "record_id": "REC-SAMPLE-RDP-FAIL-4",
+      "source_type": "event_log",
+      "artifact_type": "event_logs",
+      "timestamp": "2026-09-29T13:01:00Z",
+      "summary": "[SYNTHETIC] RDP-FAIL-4",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "TargetUserName": "labuser",
+        "IpAddress": "192.0.2.10",
+        "LogonType": 10
+      },
+      "event_id": 4625,
+      "user": "labuser",
+      "source_ip": "192.0.2.10"
+    },
+    {
+      "record_id": "REC-SAMPLE-RDP-FAIL-5",
+      "source_type": "event_log",
+      "artifact_type": "event_logs",
+      "timestamp": "2026-09-29T13:01:20Z",
+      "summary": "[SYNTHETIC] RDP-FAIL-5",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "TargetUserName": "labuser",
+        "IpAddress": "192.0.2.10",
+        "LogonType": 10
+      },
+      "event_id": 4625,
+      "user": "labuser",
+      "source_ip": "192.0.2.10"
+    },
+    {
+      "record_id": "REC-SAMPLE-RDP-FAIL-6",
+      "source_type": "event_log",
+      "artifact_type": "event_logs",
+      "timestamp": "2026-09-29T13:01:40Z",
+      "summary": "[SYNTHETIC] RDP-FAIL-6",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "TargetUserName": "labuser",
+        "IpAddress": "192.0.2.10",
+        "LogonType": 10
+      },
+      "event_id": 4625,
+      "user": "labuser",
+      "source_ip": "192.0.2.10"
+    },
+    {
+      "record_id": "REC-SAMPLE-RDP-SUCCESS",
+      "source_type": "event_log",
+      "artifact_type": "event_logs",
+      "timestamp": "2026-09-29T13:02:10Z",
+      "summary": "[SYNTHETIC] RDP-SUCCESS",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "TargetUserName": "labuser",
+        "IpAddress": "192.0.2.10",
+        "LogonType": 10
+      },
+      "event_id": 4624,
+      "user": "labuser",
+      "source_ip": "192.0.2.10"
+    },
+    {
+      "record_id": "REC-SAMPLE-POWERSHELL",
+      "source_type": "process",
+      "artifact_type": "processes",
+      "timestamp": "2026-09-29T13:03:00Z",
+      "summary": "[SYNTHETIC] POWERSHELL",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "CommandLine": "powershell.exe -NoProfile -EncodedCommand VwByAGkAdABlAC0ATwB1AHQAcAB1AHQAIAAnAFMAWQBOAFQASABFAFQASQBDACAARABFAE0ATwAgAE8ATgBMAFkAJwA="
+      },
+      "user": "labuser",
+      "process_name": "powershell.exe",
+      "process_id": 4200,
+      "parent_process_id": 4100,
+      "file_path": "C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe"
+    },
+    {
+      "record_id": "REC-SAMPLE-TASK-CREATED",
+      "source_type": "event_log",
+      "artifact_type": "event_logs",
+      "timestamp": "2026-09-29T13:04:00Z",
+      "summary": "[SYNTHETIC] TASK-CREATED",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "TaskName": "CrowEyeDemoTask",
+        "TaskContent": "cmd.exe /c C:\\CrowEyeLab\\task-demo.cmd",
+        "SubjectUserName": "labuser"
+      },
+      "event_id": 4698,
+      "user": "labuser"
+    },
+    {
+      "record_id": "REC-SAMPLE-SERVICE-INSTALLED",
+      "source_type": "event_log",
+      "artifact_type": "event_logs",
+      "timestamp": "2026-09-29T13:05:00Z",
+      "summary": "[SYNTHETIC] SERVICE-INSTALLED",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "ServiceName": "CrowEyeDemoSvc",
+        "ImagePath": "C:\\Windows\\System32\\cmd.exe /c exit 0",
+        "StartType": "demand"
+      },
+      "event_id": 7045,
+      "user": "labuser"
+    },
+    {
+      "record_id": "REC-SAMPLE-FILE-COMPARISON",
+      "source_type": "file",
+      "artifact_type": "files",
+      "timestamp": "2026-09-29T13:06:00Z",
+      "summary": "[SYNTHETIC] FILE-COMPARISON",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "hash_before": "8fee1eb133acf2580a0c310f0347cee10d46847d91bd7cd12b988e09e60bdf26",
+        "hash_after": "0b9f0088dd4ccdda0b749c00ae27f6c736ae03dad7e153ec1759cf75db60fd76",
+        "TaskName": "CrowEyeDemoTask"
+      },
+      "file_path": "C:/CrowEyeLab/tracked.txt"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-1",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:00Z",
+      "summary": "[SYNTHETIC] NETWORK-1",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40000,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-2",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:00.050000Z",
+      "summary": "[SYNTHETIC] NETWORK-2",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40001,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-3",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:00.100000Z",
+      "summary": "[SYNTHETIC] NETWORK-3",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40002,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-4",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:00.150000Z",
+      "summary": "[SYNTHETIC] NETWORK-4",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40003,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-5",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:00.200000Z",
+      "summary": "[SYNTHETIC] NETWORK-5",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40004,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-6",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:00.250000Z",
+      "summary": "[SYNTHETIC] NETWORK-6",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40005,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-7",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:00.300000Z",
+      "summary": "[SYNTHETIC] NETWORK-7",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40006,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-8",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:00.350000Z",
+      "summary": "[SYNTHETIC] NETWORK-8",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40007,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-9",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:00.400000Z",
+      "summary": "[SYNTHETIC] NETWORK-9",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40008,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-10",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:00.450000Z",
+      "summary": "[SYNTHETIC] NETWORK-10",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40009,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-11",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:00.500000Z",
+      "summary": "[SYNTHETIC] NETWORK-11",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40010,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-12",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:00.550000Z",
+      "summary": "[SYNTHETIC] NETWORK-12",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40011,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-13",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:00.600000Z",
+      "summary": "[SYNTHETIC] NETWORK-13",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40012,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-14",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:00.650000Z",
+      "summary": "[SYNTHETIC] NETWORK-14",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40013,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-15",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:00.700000Z",
+      "summary": "[SYNTHETIC] NETWORK-15",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40014,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-16",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:00.750000Z",
+      "summary": "[SYNTHETIC] NETWORK-16",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40015,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-17",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:00.800000Z",
+      "summary": "[SYNTHETIC] NETWORK-17",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40016,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-18",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:00.850000Z",
+      "summary": "[SYNTHETIC] NETWORK-18",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40017,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-19",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:00.900000Z",
+      "summary": "[SYNTHETIC] NETWORK-19",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40018,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-20",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:00.950000Z",
+      "summary": "[SYNTHETIC] NETWORK-20",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40019,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-21",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:01Z",
+      "summary": "[SYNTHETIC] NETWORK-21",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40020,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-22",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:01.050000Z",
+      "summary": "[SYNTHETIC] NETWORK-22",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40021,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-23",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:01.100000Z",
+      "summary": "[SYNTHETIC] NETWORK-23",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40022,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-24",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:01.150000Z",
+      "summary": "[SYNTHETIC] NETWORK-24",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40023,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-25",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:01.200000Z",
+      "summary": "[SYNTHETIC] NETWORK-25",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40024,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-26",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:01.250000Z",
+      "summary": "[SYNTHETIC] NETWORK-26",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40025,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-27",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:01.300000Z",
+      "summary": "[SYNTHETIC] NETWORK-27",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40026,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-28",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:01.350000Z",
+      "summary": "[SYNTHETIC] NETWORK-28",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40027,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-29",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:01.400000Z",
+      "summary": "[SYNTHETIC] NETWORK-29",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40028,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-30",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:01.450000Z",
+      "summary": "[SYNTHETIC] NETWORK-30",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40029,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-31",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:01.500000Z",
+      "summary": "[SYNTHETIC] NETWORK-31",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40030,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-32",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:01.550000Z",
+      "summary": "[SYNTHETIC] NETWORK-32",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40031,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-33",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:01.600000Z",
+      "summary": "[SYNTHETIC] NETWORK-33",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40032,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-34",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:01.650000Z",
+      "summary": "[SYNTHETIC] NETWORK-34",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40033,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-35",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:01.700000Z",
+      "summary": "[SYNTHETIC] NETWORK-35",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40034,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-36",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:01.750000Z",
+      "summary": "[SYNTHETIC] NETWORK-36",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40035,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-37",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:01.800000Z",
+      "summary": "[SYNTHETIC] NETWORK-37",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40036,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-38",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:01.850000Z",
+      "summary": "[SYNTHETIC] NETWORK-38",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40037,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-39",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:01.900000Z",
+      "summary": "[SYNTHETIC] NETWORK-39",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40038,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-40",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:01.950000Z",
+      "summary": "[SYNTHETIC] NETWORK-40",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40039,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-41",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:02Z",
+      "summary": "[SYNTHETIC] NETWORK-41",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40040,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-42",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:02.050000Z",
+      "summary": "[SYNTHETIC] NETWORK-42",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40041,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-43",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:02.100000Z",
+      "summary": "[SYNTHETIC] NETWORK-43",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40042,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-44",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:02.150000Z",
+      "summary": "[SYNTHETIC] NETWORK-44",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40043,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-45",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:02.200000Z",
+      "summary": "[SYNTHETIC] NETWORK-45",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40044,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-46",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:02.250000Z",
+      "summary": "[SYNTHETIC] NETWORK-46",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40045,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-47",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:02.300000Z",
+      "summary": "[SYNTHETIC] NETWORK-47",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40046,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-48",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:02.350000Z",
+      "summary": "[SYNTHETIC] NETWORK-48",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40047,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-49",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:02.400000Z",
+      "summary": "[SYNTHETIC] NETWORK-49",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40048,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-50",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:02.450000Z",
+      "summary": "[SYNTHETIC] NETWORK-50",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40049,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-51",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:02.500000Z",
+      "summary": "[SYNTHETIC] NETWORK-51",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40050,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-52",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:02.550000Z",
+      "summary": "[SYNTHETIC] NETWORK-52",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40051,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-53",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:02.600000Z",
+      "summary": "[SYNTHETIC] NETWORK-53",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40052,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-54",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:02.650000Z",
+      "summary": "[SYNTHETIC] NETWORK-54",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40053,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-55",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:02.700000Z",
+      "summary": "[SYNTHETIC] NETWORK-55",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40054,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-56",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:02.750000Z",
+      "summary": "[SYNTHETIC] NETWORK-56",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40055,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-57",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:02.800000Z",
+      "summary": "[SYNTHETIC] NETWORK-57",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40056,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-58",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:02.850000Z",
+      "summary": "[SYNTHETIC] NETWORK-58",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40057,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-59",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:02.900000Z",
+      "summary": "[SYNTHETIC] NETWORK-59",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40058,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-60",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:02.950000Z",
+      "summary": "[SYNTHETIC] NETWORK-60",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40059,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-61",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:03Z",
+      "summary": "[SYNTHETIC] NETWORK-61",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40060,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-62",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:03.050000Z",
+      "summary": "[SYNTHETIC] NETWORK-62",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40061,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-63",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:03.100000Z",
+      "summary": "[SYNTHETIC] NETWORK-63",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40062,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-64",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:03.150000Z",
+      "summary": "[SYNTHETIC] NETWORK-64",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40063,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-65",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:03.200000Z",
+      "summary": "[SYNTHETIC] NETWORK-65",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40064,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-66",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:03.250000Z",
+      "summary": "[SYNTHETIC] NETWORK-66",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40065,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-67",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:03.300000Z",
+      "summary": "[SYNTHETIC] NETWORK-67",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40066,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-68",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:03.350000Z",
+      "summary": "[SYNTHETIC] NETWORK-68",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40067,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-69",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:03.400000Z",
+      "summary": "[SYNTHETIC] NETWORK-69",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40068,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-70",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:03.450000Z",
+      "summary": "[SYNTHETIC] NETWORK-70",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40069,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-71",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:03.500000Z",
+      "summary": "[SYNTHETIC] NETWORK-71",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40070,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-72",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:03.550000Z",
+      "summary": "[SYNTHETIC] NETWORK-72",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40071,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-73",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:03.600000Z",
+      "summary": "[SYNTHETIC] NETWORK-73",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40072,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-74",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:03.650000Z",
+      "summary": "[SYNTHETIC] NETWORK-74",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40073,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-75",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:03.700000Z",
+      "summary": "[SYNTHETIC] NETWORK-75",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40074,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-76",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:03.750000Z",
+      "summary": "[SYNTHETIC] NETWORK-76",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40075,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-77",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:03.800000Z",
+      "summary": "[SYNTHETIC] NETWORK-77",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40076,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-78",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:03.850000Z",
+      "summary": "[SYNTHETIC] NETWORK-78",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40077,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-79",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:03.900000Z",
+      "summary": "[SYNTHETIC] NETWORK-79",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40078,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-80",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:03.950000Z",
+      "summary": "[SYNTHETIC] NETWORK-80",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40079,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-81",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:04Z",
+      "summary": "[SYNTHETIC] NETWORK-81",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40080,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-82",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:04.050000Z",
+      "summary": "[SYNTHETIC] NETWORK-82",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40081,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-83",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:04.100000Z",
+      "summary": "[SYNTHETIC] NETWORK-83",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40082,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-84",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:04.150000Z",
+      "summary": "[SYNTHETIC] NETWORK-84",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40083,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-85",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:04.200000Z",
+      "summary": "[SYNTHETIC] NETWORK-85",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40084,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-86",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:04.250000Z",
+      "summary": "[SYNTHETIC] NETWORK-86",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40085,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-87",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:04.300000Z",
+      "summary": "[SYNTHETIC] NETWORK-87",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40086,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-88",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:04.350000Z",
+      "summary": "[SYNTHETIC] NETWORK-88",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40087,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-89",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:04.400000Z",
+      "summary": "[SYNTHETIC] NETWORK-89",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40088,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-90",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:04.450000Z",
+      "summary": "[SYNTHETIC] NETWORK-90",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40089,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-91",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:04.500000Z",
+      "summary": "[SYNTHETIC] NETWORK-91",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40090,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-92",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:04.550000Z",
+      "summary": "[SYNTHETIC] NETWORK-92",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40091,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-93",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:04.600000Z",
+      "summary": "[SYNTHETIC] NETWORK-93",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40092,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-94",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:04.650000Z",
+      "summary": "[SYNTHETIC] NETWORK-94",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40093,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-95",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:04.700000Z",
+      "summary": "[SYNTHETIC] NETWORK-95",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40094,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-96",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:04.750000Z",
+      "summary": "[SYNTHETIC] NETWORK-96",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40095,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-97",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:04.800000Z",
+      "summary": "[SYNTHETIC] NETWORK-97",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40096,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-98",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:04.850000Z",
+      "summary": "[SYNTHETIC] NETWORK-98",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40097,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-99",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:04.900000Z",
+      "summary": "[SYNTHETIC] NETWORK-99",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40098,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-100",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:04.950000Z",
+      "summary": "[SYNTHETIC] NETWORK-100",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40099,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-101",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:05Z",
+      "summary": "[SYNTHETIC] NETWORK-101",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40100,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-102",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:05.050000Z",
+      "summary": "[SYNTHETIC] NETWORK-102",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40101,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-103",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:05.100000Z",
+      "summary": "[SYNTHETIC] NETWORK-103",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40102,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-104",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:05.150000Z",
+      "summary": "[SYNTHETIC] NETWORK-104",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40103,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-105",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:05.200000Z",
+      "summary": "[SYNTHETIC] NETWORK-105",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40104,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-106",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:05.250000Z",
+      "summary": "[SYNTHETIC] NETWORK-106",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40105,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-107",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:05.300000Z",
+      "summary": "[SYNTHETIC] NETWORK-107",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40106,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-108",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:05.350000Z",
+      "summary": "[SYNTHETIC] NETWORK-108",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40107,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-109",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:05.400000Z",
+      "summary": "[SYNTHETIC] NETWORK-109",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40108,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-NETWORK-110",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:05.450000Z",
+      "summary": "[SYNTHETIC] NETWORK-110",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "protocol": "tcp",
+        "destination_port": 8080,
+        "source_port": 40109,
+        "state": "Established"
+      },
+      "source_ip": "192.0.2.10",
+      "destination_ip": "192.0.2.20"
+    },
+    {
+      "record_id": "REC-SAMPLE-PROBE-TIMEOUT",
+      "source_type": "network",
+      "artifact_type": "network",
+      "timestamp": "2026-09-29T13:10:08Z",
+      "summary": "[SYNTHETIC] PROBE-TIMEOUT",
+      "hostname": "WIN8-DEMO",
+      "raw_reference": "acquisition/raw/Files/fixture_records.json",
+      "attributes": {
+        "synthetic": true,
+        "service_name": "DemoHTTP",
+        "probe_status": "timeout",
+        "destination_port": 8080,
+        "protocol": "tcp",
+        "state": "probe",
+        "response_time_ms": 3000
+      },
+      "source_ip": "192.0.2.30",
+      "destination_ip": "192.0.2.20"
+    }
+  ]
+}

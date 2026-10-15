@@ -13,16 +13,15 @@ from common.exceptions import (
     IntegrityVerificationError,
     JsonFileError,
 )
-from common.json_utils import read_json_object
+from common.json_utils import read_json_object, write_json
 from common.time_utils import utc_now_iso
 from evidence.hash_calculator import HashCalculator
 from evidence.manifest_builder import ManifestBuilder
 from models.evidence_item import EvidenceItem
 from models.evidence_manifest import EvidenceManifest
 
-_HASH_LINE_PATTERN = re.compile(
-    r"^([0-9a-fA-F]{64})  (.+)$"
-)
+_HASH_LINE_PATTERN = re.compile(r"^([0-9a-fA-F]{64})  (.+)$")
+VERIFICATION_FILENAME = "integrity_verification.json"
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,6 +76,33 @@ class IntegrityVerifier:
         *,
         raise_on_failure: bool = True,
     ) -> VerificationResult:
+        """Verify evidence and retain the outcome of this check for the UI."""
+        try:
+            result = self._verify(raise_on_failure=False)
+        except (EvidenceError, OSError) as exc:
+            write_json(
+                self.paths.analysis / VERIFICATION_FILENAME,
+                {
+                    "case_id": self.case_id,
+                    "verified_at": utc_now_iso(),
+                    "success": False,
+                    "errors": [str(exc)],
+                },
+            )
+            raise
+        write_json(
+            self.paths.analysis / VERIFICATION_FILENAME,
+            result.to_dict(),
+        )
+        if raise_on_failure and not result.success:
+            raise IntegrityVerificationError(_failure_message(result))
+        return result
+
+    def _verify(
+        self,
+        *,
+        raise_on_failure: bool = True,
+    ) -> VerificationResult:
         manifest = self._load_manifest()
         items = self._load_items(manifest)
         hash_entries = self._load_hash_entries()
@@ -85,18 +111,11 @@ class IntegrityVerifier:
         errors: list[str] = []
         matched = 0
 
-        manifest_paths = {
-            item.stored_path: item.sha256
-            for item in items
-        }
+        manifest_paths = {item.stored_path: item.sha256 for item in items}
         if len(manifest_paths) != len(items):
-            raise IntegrityVerificationError(
-                "Manifest chứa stored_path trùng lặp."
-            )
+            raise IntegrityVerificationError("Manifest chứa stored_path trùng lặp.")
         if set(hash_entries) != set(manifest_paths):
-            errors.append(
-                "hashes.sha256 không có cùng danh sách file với manifest."
-            )
+            errors.append("hashes.sha256 không có cùng danh sách file với manifest.")
         errors.extend(self._custody_errors(items))
 
         for item in items:
@@ -144,9 +163,7 @@ class IntegrityVerifier:
             errors=tuple(errors),
         )
         if raise_on_failure and not verification.success:
-            raise IntegrityVerificationError(
-                _failure_message(verification)
-            )
+            raise IntegrityVerificationError(_failure_message(verification))
         return verification
 
     def _load_manifest(self) -> dict[str, Any]:
@@ -225,9 +242,7 @@ class IntegrityVerifier:
         items: list[EvidenceItem],
     ) -> list[str]:
         try:
-            custody = read_json_object(
-                self.paths.chain_of_custody_json
-            )
+            custody = read_json_object(self.paths.chain_of_custody_json)
         except JsonFileError as exc:
             return [str(exc)]
         if custody.get("case_id") != self.case_id:
@@ -247,9 +262,7 @@ class IntegrityVerifier:
         for item in items:
             entry = registered.get(item.evidence_id)
             if entry is None:
-                errors.append(
-                    f"Chain of custody thiếu {item.evidence_id}."
-                )
+                errors.append(f"Chain of custody thiếu {item.evidence_id}.")
                 continue
             expected = {
                 "stored_path": item.stored_path,
@@ -259,9 +272,7 @@ class IntegrityVerifier:
                 "hostname": item.hostname,
             }
             if any(entry.get(key) != value for key, value in expected.items()):
-                errors.append(
-                    f"Chain of custody không khớp {item.evidence_id}."
-                )
+                errors.append(f"Chain of custody không khớp {item.evidence_id}.")
         return errors
 
 
@@ -274,9 +285,7 @@ def _validate_relative_path(value: str) -> str:
         or ".." in path.parts
         or ":" in path.parts[0]
     ):
-        raise IntegrityVerificationError(
-            f"Evidence path không an toàn: {value}"
-        )
+        raise IntegrityVerificationError(f"Evidence path không an toàn: {value}")
     return path.as_posix()
 
 

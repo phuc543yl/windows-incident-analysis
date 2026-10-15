@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "profile_id": "croweye_lab_agent_full",
+  "name": "CrowEye Lab - Agent Full",
+  "description": "Thu thap truc tiep qua Agent cho lab RDP, PowerShell, Scheduled Task va Service.",
+  "hypothesis": "Endpoint Windows cua lab co dau vet xac thuc va thuc thi can doi chieu.",
+  "default_time_window_hours": 24,
+  "live_collectors": ["network", "processes", "system", "services", "users", "startup"],
+  "artifact_collectors": ["event_logs", "scheduled_tasks"],
+  "required_artifacts": ["event_logs"],
+  "optional_artifacts": ["scheduled_tasks"],
+  "tools": ["hayabusa", "evtxecmd"],
+  "detection_rules": [
+    "failed_logon_burst", "successful_logon_after_failures", "suspicious_powershell",
+    "scheduled_task_created", "service_configuration_changed", "security_log_cleared",
+    "powershell_scriptblock_suspicious", "event_log_service_shutdown", "connection_flood"
+  ],
+  "correlation_profile": "general_investigation"
+}

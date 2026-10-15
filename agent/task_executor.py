@@ -7,10 +7,14 @@ import socket
 import tempfile
 import threading
 import zipfile
+from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
+from agent.agent_logger import AgentLogger
+from agent.configuration import AgentSettings
+from agent.local_buffer import AgentTask, LocalBuffer
 from case_management.case_paths import RAW_ARTIFACT_DIRECTORIES
 from clients.local_client import LocalClient
 from collection.collector_registry import (
@@ -32,9 +36,6 @@ from models.collection_plan import CollectionPlan
 from models.collection_result import CollectionResult
 from models.evidence_item import EvidenceItem, stable_evidence_id
 from models.evidence_manifest import EvidenceManifest
-from agent.agent_logger import AgentLogger
-from agent.configuration import AgentSettings
-from agent.local_buffer import AgentTask, LocalBuffer
 
 
 class TaskExecutor:
@@ -60,9 +61,7 @@ class TaskExecutor:
         )
         self._futures: dict[str, Future[None]] = {}
         self._lock = threading.RLock()
-        unknown = set(settings.collector_allowlist) - set(
-            self.registry.ids()
-        )
+        unknown = set(settings.collector_allowlist) - set(self.registry.ids())
         if unknown:
             raise AgentError(
                 f"Collector allowlist chưa được triển khai: {sorted(unknown)}"
@@ -75,20 +74,15 @@ class TaskExecutor:
         background: bool = True,
     ) -> AgentTask:
         normalized_plan = (
-            plan
-            if isinstance(plan, CollectionPlan)
-            else self._parse_plan(plan)
+            plan if isinstance(plan, CollectionPlan) else self._parse_plan(plan)
         )
         self._validate_plan(normalized_plan)
         with self._lock:
             active_count = sum(
-                task.status in {"queued", "running"}
-                for task in self.buffer.list()
+                task.status in {"queued", "running"} for task in self.buffer.list()
             )
             if active_count >= self.settings.max_concurrent_tasks:
-                raise AgentError(
-                    "Agent đã đạt giới hạn task đang chạy."
-                )
+                raise AgentError("Agent đã đạt giới hạn task đang chạy.")
             task = self.buffer.create(normalized_plan.to_dict())
             self.logger.log(
                 "task_submitted",
@@ -96,9 +90,7 @@ class TaskExecutor:
                     "task_id": task.task_id,
                     "case_id": normalized_plan.case_id,
                     "plan_id": normalized_plan.plan_id,
-                    "collectors": list(
-                        self._collector_ids(normalized_plan)
-                    ),
+                    "collectors": list(self._collector_ids(normalized_plan)),
                 },
             )
             if background:
@@ -139,17 +131,23 @@ class TaskExecutor:
         )
         try:
             workspace = self.buffer.workspace(task_id)
-            results = self._run_collectors(plan, workspace)
+            results = self._run_collectors(
+                plan,
+                workspace,
+                on_progress=lambda message: self.buffer.set_progress(task_id, message),
+            )
+            self.buffer.set_progress(
+                task_id, "Đang tính SHA-256 và tạo manifest bằng chứng..."
+            )
             self._write_metadata(plan, results, workspace)
+            self.buffer.set_progress(task_id, "Đang đóng gói Evidence Bundle...")
             bundle_path, digest, size = self._build_bundle(
                 task_id,
                 workspace,
             )
             self.buffer.mark_completed(
                 task_id,
-                collection_results=tuple(
-                    result.to_dict() for result in results
-                ),
+                collection_results=tuple(result.to_dict() for result in results),
                 bundle_path=bundle_path,
                 bundle_sha256=digest,
                 bundle_size_bytes=size,
@@ -159,9 +157,7 @@ class TaskExecutor:
                 details={
                     "task_id": task_id,
                     "collector_count": len(results),
-                    "failed_count": sum(
-                        not result.succeeded for result in results
-                    ),
+                    "failed_count": sum(not result.succeeded for result in results),
                     "bundle_sha256": digest,
                     "bundle_size_bytes": size,
                 },
@@ -183,9 +179,16 @@ class TaskExecutor:
         self,
         plan: CollectionPlan,
         workspace: Path,
+        *,
+        on_progress: Callable[[str], None] | None = None,
     ) -> tuple[CollectionResult, ...]:
         results: list[CollectionResult] = []
-        for collector_id in self._collector_ids(plan):
+        collector_ids = self._collector_ids(plan)
+        for index, collector_id in enumerate(collector_ids, start=1):
+            if on_progress is not None:
+                on_progress(
+                    f"Collector {index}/{len(collector_ids)}: {collector_id}..."
+                )
             started_at = utc_now()
             collector = self.registry.get(collector_id)
             try:
@@ -242,6 +245,11 @@ class TaskExecutor:
                     },
                 )
             results.append(result)
+            if on_progress is not None:
+                on_progress(
+                    f"{collector_id}: {result.status.value}, "
+                    f"{result.record_count} bản ghi."
+                )
         return tuple(results)
 
     def _persist_output(
@@ -272,22 +280,16 @@ class TaskExecutor:
     ) -> Path:
         candidate = Path(value).expanduser()
         if candidate.is_symlink():
-            raise AgentError(
-                "Collector output không được là symbolic link."
-            )
+            raise AgentError("Collector output không được là symbolic link.")
         path = candidate.resolve()
         try:
             path.relative_to(destination.resolve())
         except ValueError as exc:
-            raise AgentError(
-                "Collector trả về output ngoài destination."
-            ) from exc
+            raise AgentError("Collector trả về output ngoài destination.") from exc
         if not path.is_file():
             raise AgentError("Collector output không tồn tại.")
         if path.stat().st_size > self.settings.max_file_size_bytes:
-            raise AgentError(
-                f"Collector output vượt giới hạn kích thước: {path.name}"
-            )
+            raise AgentError(f"Collector output vượt giới hạn kích thước: {path.name}")
         return path
 
     def _write_metadata(
@@ -343,8 +345,7 @@ class TaskExecutor:
             context = contexts.get(stored_path)
             if context is None:
                 raise AgentError(
-                    "Không xác định được collector sở hữu evidence: "
-                    f"{stored_path}"
+                    f"Không xác định được collector sở hữu evidence: {stored_path}"
                 )
             collection_result, category, artifact_type = context
             evidence_id = stable_evidence_id(
@@ -363,9 +364,7 @@ class TaskExecutor:
                 hostname=hostname,
                 sha256=hash_result.sha256,
                 size_bytes=hash_result.size_bytes,
-                collected_at=(
-                    collection_result.finished_at or generated_at
-                ),
+                collected_at=(collection_result.finished_at or generated_at),
                 metadata={
                     "collected_by": self.settings.agent_id,
                     "mode": OperationMode.AGENT.value,
@@ -390,9 +389,7 @@ class TaskExecutor:
                 "case_id": plan.case_id,
                 "plan_id": plan.plan_id,
                 "result_count": len(results),
-                "collection_results": [
-                    result.to_dict() for result in results
-                ],
+                "collection_results": [result.to_dict() for result in results],
             },
         )
 
@@ -443,11 +440,7 @@ class TaskExecutor:
         temporary.unlink(missing_ok=True)
         files = tuple(
             sorted(
-                (
-                    path
-                    for path in workspace.rglob("*")
-                    if path.is_file()
-                ),
+                (path for path in workspace.rglob("*") if path.is_file()),
                 key=lambda item: item.as_posix().casefold(),
             )
         )
@@ -461,18 +454,14 @@ class TaskExecutor:
             ) as archive:
                 for path in files:
                     if path.is_symlink():
-                        raise AgentError(
-                            "Bundle không chấp nhận symbolic link."
-                        )
+                        raise AgentError("Bundle không chấp nhận symbolic link.")
                     archive.write(
                         path,
                         arcname=path.relative_to(workspace).as_posix(),
                     )
             size = temporary.stat().st_size
             if size > self.settings.max_bundle_size_bytes:
-                raise AgentError(
-                    "Evidence Bundle vượt giới hạn kích thước."
-                )
+                raise AgentError("Evidence Bundle vượt giới hạn kích thước.")
             os.replace(temporary, bundle)
         except Exception:
             temporary.unlink(missing_ok=True)
@@ -484,15 +473,11 @@ class TaskExecutor:
         if plan.mode is not OperationMode.AGENT:
             raise AgentError("Agent chỉ nhận Collection Plan ở Agent Mode.")
         if plan.target_agent_id != self.settings.agent_id:
-            raise AgentError(
-                "Collection Plan không dành cho Agent này."
-            )
+            raise AgentError("Collection Plan không dành cho Agent này.")
         requested = set(self._collector_ids(plan))
         blocked = requested - set(self.settings.collector_allowlist)
         if blocked:
-            raise AgentError(
-                f"Collector không nằm trong allowlist: {sorted(blocked)}"
-            )
+            raise AgentError(f"Collector không nằm trong allowlist: {sorted(blocked)}")
 
     @staticmethod
     def _parse_plan(data: dict[str, Any]) -> CollectionPlan:
@@ -501,9 +486,7 @@ class TaskExecutor:
         try:
             return CollectionPlan.from_dict(data)
         except (KeyError, TypeError, ValueError) as exc:
-            raise AgentError(
-                f"Collection Plan không hợp lệ: {exc}"
-            ) from exc
+            raise AgentError(f"Collection Plan không hợp lệ: {exc}") from exc
 
     @staticmethod
     def _collector_ids(
@@ -523,15 +506,8 @@ class TaskExecutor:
             try:
                 directory_name = RAW_ARTIFACT_DIRECTORIES[collector_id]
             except KeyError as exc:
-                raise AgentError(
-                    f"Không có raw directory cho {collector_id}."
-                ) from exc
-            destination = (
-                workspace
-                / "acquisition"
-                / "raw"
-                / directory_name
-            )
+                raise AgentError(f"Không có raw directory cho {collector_id}.") from exc
+            destination = workspace / "acquisition" / "raw" / directory_name
         destination.mkdir(parents=True, exist_ok=True)
         return destination
 

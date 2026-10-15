@@ -9,7 +9,7 @@ from pathlib import Path
 from case_management.audit_logger import AuditLogger
 from case_management.case_repository import CaseRepository
 from common.enums import ArtifactType, ToolRunStatus
-from common.exceptions import ToolkitError, ToolIntegrationError
+from common.exceptions import ToolIntegrationError, ToolkitError
 from evidence.integrity_verifier import IntegrityVerifier
 from integrations.adapters import BaseAdapter, create_adapter
 from integrations.tool_registry import ToolDefinition, ToolRegistry
@@ -75,15 +75,19 @@ class IntegrationService:
         tool_ids: Iterable[str] | None = None,
         verify_integrity: bool = True,
         continue_on_error: bool = True,
+        on_progress: Callable[[str], None] | None = None,
     ) -> IntegrationResult:
         """Execute selected tools, parse their output, then normalize it."""
 
+        report = on_progress or (lambda _message: None)
+        report("Đang kiểm tra Case và danh sách công cụ...")
         case = self.repository.require_open(case_id)
         paths = self.repository.paths(case.case_id)
         target = self.repository.load_target(case.case_id)
         requested = self._requested_tools(case.case_id, tool_ids)
 
         if verify_integrity:
+            report("Đang kiểm tra tính toàn vẹn bằng chứng...")
             IntegrityVerifier(
                 case.case_id,
                 self.repository.project,
@@ -96,18 +100,20 @@ class IntegrationService:
         failed: list[str] = []
         warnings: list[str] = []
 
+        report("Đang đọc dữ liệu live đã thu thập...")
         try:
-            live_records = LiveRecordLoader(
-                self.repository.project
-            ).load(case.case_id)
+            live_records = LiveRecordLoader(self.repository.project).load(case.case_id)
             records.extend(live_records)
+            report(f"Đã đọc {len(live_records)} bản ghi live.")
         except (ToolkitError, OSError, TypeError, ValueError) as exc:
             live_records = ()
             warnings.append(f"live data: {exc}")
+            report(f"Cảnh báo: {warnings[-1]}")
             if not continue_on_error:
                 raise ToolIntegrationError(warnings[-1]) from exc
 
-        for tool_id in requested:
+        for index, tool_id in enumerate(requested, start=1):
+            report(f"Công cụ {index}/{len(requested)}: {tool_id}...")
             try:
                 definition = self.registry.get(
                     tool_id,
@@ -115,17 +121,15 @@ class IntegrationService:
                 )
                 adapter = self.adapter_factory(definition, self.runner)
                 inputs = self._input_paths(
-                    paths.raw_artifact_dir(
-                        adapter.artifact_type.value
-                    ),
+                    paths.raw_artifact_dir(adapter.artifact_type.value),
                     adapter.artifact_type,
                 )
                 if not inputs:
                     skipped.append(tool_id)
                     warnings.append(
-                        f"{tool_id}: chưa có artifact "
-                        f"{adapter.artifact_type.value}."
+                        f"{tool_id}: chưa có artifact {adapter.artifact_type.value}."
                     )
+                    report(f"Bỏ qua: {warnings[-1]}")
                     continue
 
                 result = adapter.run(
@@ -139,20 +143,24 @@ class IntegrationService:
                     warnings.append(
                         f"{tool_id}: {result.error_message or result.status.value}"
                     )
+                    report(f"Thất bại: {warnings[-1]}")
                     if not continue_on_error:
                         raise ToolIntegrationError(warnings[-1])
                     continue
 
+                report(f"{tool_id}: đang đọc kết quả công cụ...")
                 parsed = adapter.parse(
                     result,
                     hostname=target.hostname,
                 )
                 records.extend(parsed)
                 succeeded.append(tool_id)
+                report(f"{tool_id}: hoàn tất, {len(parsed)} bản ghi.")
             except (ToolkitError, OSError, TypeError, ValueError) as exc:
                 if tool_id not in failed:
                     failed.append(tool_id)
                 warnings.append(f"{tool_id}: {exc}")
+                report(f"Thất bại: {warnings[-1]}")
                 if not continue_on_error:
                     raise
 
@@ -169,9 +177,11 @@ class IntegrationService:
                 f"không bị ghi đè. Chi tiết: {detail}"
             )
 
+        report(f"Đang chuẩn hóa {len(records)} bản ghi...")
         processing = self.pipeline.process(
             case_id=case.case_id,
             records=records,
+            **({"on_progress": on_progress} if on_progress is not None else {}),
         )
         result = IntegrationResult(
             case_id=case.case_id,
@@ -202,6 +212,11 @@ class IntegrationService:
                 "normalized_count": result.normalized_count,
             },
         )
+        report(
+            f"Xử lý hoàn tất: {result.normalized_count} bản ghi, "
+            f"{result.timeline_count} sự kiện dòng thời gian, "
+            f"{len(result.warnings)} cảnh báo."
+        )
         return result
 
     def _requested_tools(
@@ -231,9 +246,7 @@ class IntegrationService:
             if normalized not in result:
                 result.append(normalized)
         if not result:
-            raise ToolIntegrationError(
-                "Case không có tool nào được chọn để xử lý."
-            )
+            raise ToolIntegrationError("Case không có tool nào được chọn để xử lý.")
         return tuple(result)
 
     @staticmethod

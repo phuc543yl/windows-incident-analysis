@@ -6,17 +6,19 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from typing import Any
 
+from analysis.detection.risk_engine import RiskEngine
+from analysis.helpers import (
+    deterministic_id,
+    source_allowed,
+    source_ip,
+    target_user,
+    unique_strings,
+)
 from common.enums import FindingSeverity
 from common.exceptions import AnalysisError
 from models.alert import Alert
 from models.finding import Finding
 from models.normalized_record import NormalizedRecord
-from analysis.detection.risk_engine import RiskEngine
-from analysis.helpers import (
-    deterministic_id,
-    source_allowed,
-    unique_strings,
-)
 
 
 class BaseRule(ABC):
@@ -30,9 +32,7 @@ class BaseRule(ABC):
         risk_engine: RiskEngine | None = None,
     ) -> None:
         if config.get("id") != self.rule_id:
-            raise AnalysisError(
-                f"Config không dành cho rule {self.rule_id}."
-            )
+            raise AnalysisError(f"Config không dành cho rule {self.rule_id}.")
         self.config = dict(config)
         self.name = _required_text(config.get("name"), "name")
         self.description = _required_text(
@@ -40,20 +40,15 @@ class BaseRule(ABC):
             "description",
         )
         self.enabled = bool(config.get("enabled", True))
-        self.severity = FindingSeverity(
-            str(config.get("severity", "medium"))
-        )
+        self.severity = FindingSeverity(str(config.get("severity", "medium")))
         self.base_risk_score = float(config.get("risk_score", 50))
         self.source_types = tuple(config.get("source_types", ()))
         self.mitre_techniques = tuple(
-            str(value)
-            for value in config.get("mitre_techniques", ())
+            str(value) for value in config.get("mitre_techniques", ())
         )
         parameters = config.get("parameters", {})
         if not isinstance(parameters, dict):
-            raise AnalysisError(
-                f"parameters của {self.rule_id} phải là object."
-            )
+            raise AnalysisError(f"parameters của {self.rule_id} phải là object.")
         self.parameters = dict(parameters)
         self.risk_engine = risk_engine or RiskEngine()
 
@@ -62,9 +57,7 @@ class BaseRule(ABC):
         records: Iterable[NormalizedRecord],
     ) -> tuple[NormalizedRecord, ...]:
         return tuple(
-            record
-            for record in records
-            if source_allowed(record, self.source_types)
+            record for record in records if source_allowed(record, self.source_types)
         )
 
     @abstractmethod
@@ -84,12 +77,11 @@ class BaseRule(ABC):
         description: str | None = None,
         details: dict[str, Any] | None = None,
         indicator_hits: int = 0,
+        risk_record_count: int | None = None,
     ) -> Alert:
         source_records = tuple(records)
         if not source_records:
-            raise AnalysisError(
-                f"Rule {self.rule_id} không thể tạo Alert rỗng."
-            )
+            raise AnalysisError(f"Rule {self.rule_id} không thể tạo Alert rỗng.")
         case_ids = {record.case_id for record in source_records}
         if len(case_ids) != 1:
             raise AnalysisError("Alert không thể chứa nhiều Case.")
@@ -105,6 +97,18 @@ class BaseRule(ABC):
             self.rule_id,
             *sorted(source_ids),
         )
+        context: dict[str, Any] = {}
+        for key, values in (
+            ("hostname", (record.hostname for record in source_records)),
+            ("target_user", (target_user(record) for record in source_records)),
+            ("source_ip", (source_ip(record) for record in source_records)),
+            ("file_path", (record.file_path for record in source_records)),
+        ):
+            known = {
+                str(value).strip().casefold() for value in values if str(value).strip()
+            }
+            if len(known) == 1:
+                context[key] = next(iter(known))
         return Alert(
             case_id=source_records[0].case_id,
             rule_id=self.rule_id,
@@ -114,7 +118,11 @@ class BaseRule(ABC):
             risk_score=self.risk_engine.calculate(
                 self.base_risk_score,
                 self.severity,
-                record_count=len(source_records),
+                record_count=(
+                    len(source_records)
+                    if risk_record_count is None
+                    else risk_record_count
+                ),
                 indicator_hits=indicator_hits,
             ),
             alert_id=alert_id,
@@ -128,11 +136,9 @@ class BaseRule(ABC):
                 for evidence_id in finding.evidence_item_ids
             ),
             mitre_techniques=self.mitre_techniques,
-            created_at=max(
-                record.timestamp for record in source_records
-            ),
+            created_at=max(record.timestamp for record in source_records),
             recommendation=self.recommendation,
-            details=dict(details or {}),
+            details={**context, **dict(details or {})},
         )
 
 

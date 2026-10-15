@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-from models.alert import Alert
-from models.finding import Finding
-from models.normalized_record import NormalizedRecord
 from analysis.detection.rules.base_rule import BaseRule
 from analysis.helpers import (
-    authorized_maintenance,
+    attribute,
     integer_attribute,
+    maintenance_authorization,
     service_name,
     text_blob,
 )
+from models.alert import Alert
+from models.finding import Finding
+from models.normalized_record import NormalizedRecord
 
 
 class ServiceStoppedRule(BaseRule):
@@ -24,10 +25,7 @@ class ServiceStoppedRule(BaseRule):
         records: tuple[NormalizedRecord, ...],
         findings: tuple[Finding, ...] = (),
     ) -> tuple[Alert, ...]:
-        event_ids = {
-            int(value)
-            for value in self.parameters.get("event_ids", (7036,))
-        }
+        event_ids = {int(value) for value in self.parameters.get("event_ids", (7036,))}
         states = tuple(
             str(value).casefold()
             for value in self.parameters.get(
@@ -51,21 +49,25 @@ class ServiceStoppedRule(BaseRule):
             name = service_name(record)
             if name.casefold() in allowlist:
                 continue
-            if require_unauthorized and authorized_maintenance(record):
+            approval = maintenance_authorization(record)
+            if require_unauthorized and approval is not False:
                 continue
             downtime = integer_attribute(
                 record,
                 "downtime_seconds",
                 "outage_seconds",
             )
-            if (
-                downtime is not None
-                and minimum_downtime
-                and downtime < minimum_downtime
-            ):
+            if minimum_downtime and (downtime is None or downtime < minimum_downtime):
                 continue
             blob = text_blob(record)
-            state_hits = tuple(value for value in states if value in blob)
+            state = (
+                str(attribute(record, "State", "status", "param2")).strip().casefold()
+            )
+            state_hits = tuple(
+                value
+                for value in states
+                if (state == value if state else value in blob)
+            )
             if record.event_id not in event_ids:
                 continue
             if not state_hits:
@@ -78,7 +80,7 @@ class ServiceStoppedRule(BaseRule):
                         "service_name": name,
                         "state_hits": state_hits,
                         "unauthorized_context_required": require_unauthorized,
-                        "authorized_maintenance": False,
+                        "authorized_maintenance": approval,
                         "downtime_seconds": downtime,
                     },
                     indicator_hits=len(state_hits),

@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import re
+
+from analysis.detection.rules.base_rule import BaseRule
+from analysis.helpers import attribute
+from common.enums import ArtifactType
 from models.alert import Alert
 from models.finding import Finding
 from models.normalized_record import NormalizedRecord
-from analysis.detection.rules.base_rule import BaseRule
-from analysis.helpers import text_blob
 
 
 class SuspiciousPowerShellRule(BaseRule):
@@ -21,13 +24,9 @@ class SuspiciousPowerShellRule(BaseRule):
         records: tuple[NormalizedRecord, ...],
         findings: tuple[Finding, ...] = (),
     ) -> tuple[Alert, ...]:
-        event_ids = {
-            int(value)
-            for value in self.parameters.get("event_ids", ())
-        }
+        event_ids = {int(value) for value in self.parameters.get("event_ids", ())}
         names = {
-            str(value).casefold()
-            for value in self.parameters.get("process_names", ())
+            str(value).casefold() for value in self.parameters.get("process_names", ())
         }
         indicators = tuple(
             str(value).casefold()
@@ -42,14 +41,44 @@ class SuspiciousPowerShellRule(BaseRule):
         )
         alerts: list[Alert] = []
         for record in self.candidates(records):
-            process_match = record.process_name.casefold() in names
-            event_match = record.event_id in event_ids
-            blob = text_blob(record)
-            if not process_match and not event_match:
-                if "powershell" not in blob:
-                    continue
+            if (
+                record.artifact_type is ArtifactType.EVENT_LOGS
+                and event_ids
+                and record.event_id not in event_ids
+            ):
+                continue
+            command = str(
+                attribute(
+                    record,
+                    "CommandLine",
+                    "ProcessCommandLine",
+                    "NewProcessCommandLine",
+                    default=record.summary,
+                )
+            ).casefold()
+            image = str(
+                attribute(
+                    record,
+                    "NewProcessName",
+                    "Image",
+                    "ExecutablePath",
+                    default=record.process_name,
+                )
+            )
+            if not (
+                _process_name(record.process_name) in names
+                or _process_name(image) in names
+                or _launches_powershell(command, names)
+            ):
+                continue
             hits = tuple(
-                indicator for indicator in indicators if indicator in blob
+                dict.fromkeys(
+                    "-encodedcommand"
+                    if indicator in {"-enc", "-encodedcommand"}
+                    else indicator
+                    for indicator in indicators
+                    if _indicator_matches(command, indicator)
+                )
             )
             if len(hits) < minimum_hits:
                 continue
@@ -68,3 +97,32 @@ class SuspiciousPowerShellRule(BaseRule):
                 )
             )
         return tuple(alerts)
+
+
+def _process_name(value: str) -> str:
+    return value.strip().strip("\"'").replace("\\", "/").rsplit("/", 1)[-1].casefold()
+
+
+def _launches_powershell(command: str, names: set[str]) -> bool:
+    # Inspect the command being launched, including cmd /c and /k wrappers.
+    # A word elsewhere in event metadata does not identify a PowerShell process.
+    invocation = command.strip().lstrip("& ")
+    wrapper = re.match(
+        r'(?i)(?:"[^"\n]*cmd(?:\.exe)?"|\S*cmd(?:\.exe)?)\s+/[ck]\s+(.+)', invocation
+    )
+    if wrapper:
+        invocation = wrapper.group(1).strip()
+        if invocation.startswith('""') and invocation.endswith('"'):
+            invocation = invocation[1:-1]
+    executable = re.match(r'(?i)(?:"([^"\n]+)"|([^\s"\']+))', invocation)
+    if executable is None:
+        return False
+    name = _process_name(executable.group(1) or executable.group(2))
+    return name in names or f"{name}.exe" in names
+
+
+def _indicator_matches(command: str, indicator: str) -> bool:
+    pattern = r"\s+".join(re.escape(part) for part in indicator.split())
+    if indicator.startswith("-"):
+        pattern = r"(?<![\w-])" + pattern + r"(?![\w-])"
+    return re.search(pattern, command) is not None

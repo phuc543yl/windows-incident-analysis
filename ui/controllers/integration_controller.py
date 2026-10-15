@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any
 
@@ -30,12 +30,14 @@ class IntegrationController:
         *,
         tool_ids: Iterable[str] | None = None,
         continue_on_error: bool = True,
+        on_progress: Callable[[str], None] | None = None,
     ) -> dict[str, Any]:
         case_id = self.case_controller.require_case_id()
         result = self.service.process_case(
             case_id,
             tool_ids=tool_ids,
             continue_on_error=continue_on_error,
+            **({"on_progress": on_progress} if on_progress is not None else {}),
         )
         return {
             "case_id": result.case_id,
@@ -49,14 +51,10 @@ class IntegrationController:
             "duplicate_count": result.duplicate_count,
             "timeline_count": result.timeline_count,
             "records_path": (
-                str(result.records_path)
-                if result.records_path is not None
-                else None
+                str(result.records_path) if result.records_path is not None else None
             ),
             "timeline_path": (
-                str(result.timeline_path)
-                if result.timeline_path is not None
-                else None
+                str(result.timeline_path) if result.timeline_path is not None else None
             ),
             "warnings": list(result.warnings),
         }

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import shutil
 import stat
 import tempfile
@@ -45,10 +44,7 @@ class EvidenceTestCase(unittest.TestCase):
 
     def add_evidence(self) -> tuple[Path, Path]:
         live_file = self.paths.live / "system.json"
-        raw_file = (
-            self.paths.raw_artifact_dir("event_logs")
-            / "Security.evtx"
-        )
+        raw_file = self.paths.raw_artifact_dir("event_logs") / "Security.evtx"
         write_json(
             live_file,
             {"hostname": "WIN-LAB01", "os_name": "Windows 11"},
@@ -114,10 +110,7 @@ class ManifestBuilderTests(EvidenceTestCase):
         self.assertEqual(manifest["schema_version"], 1)
         self.assertEqual(manifest["hash_algorithm"], "sha256")
         self.assertEqual(manifest["item_count"], 2)
-        items = {
-            item["stored_path"]: item
-            for item in manifest["evidence_items"]
-        }
+        items = {item["stored_path"]: item for item in manifest["evidence_items"]}
         live_path = live_file.relative_to(self.paths.root).as_posix()
         raw_path = raw_file.relative_to(self.paths.root).as_posix()
         self.assertEqual(items[live_path]["category"], "live")
@@ -143,8 +136,7 @@ class ManifestBuilderTests(EvidenceTestCase):
         self.assertEqual(len(custody["entries"]), 2)
         self.assertTrue(
             all(
-                entry["action"] == "evidence_registered"
-                for entry in custody["entries"]
+                entry["action"] == "evidence_registered" for entry in custody["entries"]
             )
         )
 
@@ -162,12 +154,8 @@ class ManifestBuilderTests(EvidenceTestCase):
             source_map={stored_path: r"C:\Windows\Security.evtx"},
         )
 
-        first_ids = {
-            item["evidence_id"] for item in first["evidence_items"]
-        }
-        second_ids = {
-            item["evidence_id"] for item in second["evidence_items"]
-        }
+        first_ids = {item["evidence_id"] for item in first["evidence_items"]}
+        second_ids = {item["evidence_id"] for item in second["evidence_items"]}
         self.assertEqual(first_ids, second_ids)
         raw_item = next(
             item
@@ -203,10 +191,7 @@ class ManifestBuilderTests(EvidenceTestCase):
     def test_discovery_rejects_symbolic_link(self) -> None:
         outside = self.temp_path / "outside.evtx"
         outside.write_bytes(b"outside")
-        link = (
-            self.paths.raw_artifact_dir("event_logs")
-            / "linked.evtx"
-        )
+        link = self.paths.raw_artifact_dir("event_logs") / "linked.evtx"
         try:
             link.symlink_to(outside)
         except OSError as exc:
@@ -234,10 +219,7 @@ class IntegrityVerifierTests(EvidenceTestCase):
 
     def test_verify_detects_modified_file(self) -> None:
         self.build_manifest()
-        raw_file = (
-            self.paths.raw_artifact_dir("event_logs")
-            / "Security.evtx"
-        )
+        raw_file = self.paths.raw_artifact_dir("event_logs") / "Security.evtx"
         raw_file.write_bytes(b"tampered")
         verifier = IntegrityVerifier(self.case.case_id, self.temp_path)
 
@@ -253,10 +235,7 @@ class IntegrityVerifierTests(EvidenceTestCase):
 
     def test_verify_detects_missing_and_untracked_files(self) -> None:
         self.build_manifest()
-        raw_file = (
-            self.paths.raw_artifact_dir("event_logs")
-            / "Security.evtx"
-        )
+        raw_file = self.paths.raw_artifact_dir("event_logs") / "Security.evtx"
         raw_file.unlink()
         untracked = self.paths.live / "users.json"
         write_json(untracked, [{"name": "analyst"}])
@@ -300,9 +279,7 @@ class IntegrityVerifierTests(EvidenceTestCase):
         ).verify(raise_on_failure=False)
 
         self.assertFalse(result.success)
-        self.assertTrue(
-            any("Chain of custody" in error for error in result.errors)
-        )
+        self.assertTrue(any("Chain of custody" in error for error in result.errors))
 
     def test_verify_rejects_manifest_path_traversal(self) -> None:
         manifest = self.build_manifest()
@@ -335,18 +312,14 @@ class BundleTests(EvidenceTestCase):
         files = set(reader.list_files())
 
         self.assertTrue(result.bundle_path.is_file())
-        self.assertTrue(
-            result.bundle_path.with_suffix(".zip.sha256").is_file()
-        )
+        self.assertTrue(result.bundle_path.with_suffix(".zip.sha256").is_file())
         self.assertIn("case.json", files)
         self.assertIn("target.json", files)
         self.assertIn("collection_plan.json", files)
         self.assertIn("acquisition/manifest.json", files)
         self.assertIn("logs/collection.log", files)
         self.assertNotIn("analysis/not_evidence.txt", files)
-        self.assertFalse(
-            any(name.startswith("bundles/") for name in files)
-        )
+        self.assertFalse(any(name.startswith("bundles/") for name in files))
         self.assertEqual(
             reader.read_manifest()["case_id"],
             self.case.case_id,
@@ -408,9 +381,7 @@ class BundleTests(EvidenceTestCase):
         result = reader.extract(destination)
 
         self.assertEqual(result, destination.resolve())
-        self.assertTrue(
-            (destination / "acquisition" / "manifest.json").is_file()
-        )
+        self.assertTrue((destination / "acquisition" / "manifest.json").is_file())
         with self.assertRaises(FileExistsError):
             reader.extract(destination)
 
@@ -428,6 +399,30 @@ class BundleTests(EvidenceTestCase):
 
 
 class EvidenceServiceTests(EvidenceTestCase):
+    def test_ensure_preserved_verifies_existing_manifest_without_rewriting_it(
+        self,
+    ) -> None:
+        self.add_evidence()
+        service = EvidenceService(self.temp_path, actor="examiner")
+        manifest = service.ensure_preserved(self.case.case_id)
+        before = self.paths.manifest_json.read_bytes()
+
+        again = service.ensure_preserved(self.case.case_id)
+
+        self.assertEqual(again, manifest)
+        self.assertEqual(self.paths.manifest_json.read_bytes(), before)
+
+    def test_ensure_preserved_refuses_changed_evidence_without_rebaseline(self) -> None:
+        self.add_evidence()
+        service = EvidenceService(self.temp_path, actor="examiner")
+        service.ensure_preserved(self.case.case_id)
+        before = self.paths.manifest_json.read_bytes()
+        (self.paths.live / "system.json").write_bytes(b"modified")
+
+        with self.assertRaises(IntegrityVerificationError):
+            service.ensure_preserved(self.case.case_id)
+        self.assertEqual(self.paths.manifest_json.read_bytes(), before)
+
     def test_preserve_and_verify_case_are_audited(self) -> None:
         self.add_evidence()
         service = EvidenceService(self.temp_path, actor="examiner")

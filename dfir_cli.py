@@ -65,9 +65,7 @@ def _load_service(
 
     service_class = getattr(module, class_name, None)
     if service_class is None:
-        raise CliDependencyError(
-            f"Không tìm thấy {class_name} trong {module_name}."
-        )
+        raise CliDependencyError(f"Không tìm thấy {class_name} trong {module_name}.")
     return service_class(root) if root is not None else service_class()
 
 
@@ -291,10 +289,9 @@ def _handle_preserve(args: argparse.Namespace) -> Any:
         "EvidenceService",
         args.root,
     )
-    return service.preserve_case(
-        args.case_id,
-        rebuild=args.rebuild,
-    )
+    if args.rebuild:
+        return service.preserve_case(args.case_id, rebuild=True)
+    return service.ensure_preserved(args.case_id)
 
 
 def _handle_verify(args: argparse.Namespace) -> Any:

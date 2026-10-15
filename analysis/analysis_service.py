@@ -2,28 +2,32 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
+from analysis.analyzers import DEFAULT_ANALYZERS, BaseAnalyzer
+from analysis.correlation import CorrelationEngine
+from analysis.detection import RuleEngine
+from analysis.history_service import AnalysisHistoryService
+from analysis.investigation.checklist import ChecklistService
 from case_management.audit_logger import AuditLogger
 from case_management.case_repository import CaseRepository
 from common.enums import CIAImpact, IncidentStatus
 from common.exceptions import AnalysisError, JsonFileError, ProcessingError
 from common.json_utils import read_json_object, write_json
 from common.time_utils import utc_now
+from evidence.evidence_service import EvidenceService
 from models.alert import Alert
 from models.finding import Finding
 from models.incident import Incident
 from models.normalized_record import NormalizedRecord
 from models.timeline_event import TimelineEvent
 from processing.processing_pipeline import ProcessingPipeline
+from processing.schema import timeline_envelope
 from processing.timeline_builder import TimelineBuilder
-from analysis.analyzers import DEFAULT_ANALYZERS, BaseAnalyzer
-from analysis.correlation import CorrelationEngine
-from analysis.detection import RuleEngine
-from analysis.history_service import AnalysisHistoryService
 
 SCHEMA_VERSION = 1
 
@@ -64,12 +68,8 @@ class AnalysisService:
     ) -> None:
         self.repository = CaseRepository(root)
         self.analyzers = tuple(analyzers)
-        self.rule_engine = rule_engine or RuleEngine(
-            self.repository.project
-        )
-        self.correlation_engine = (
-            correlation_engine or CorrelationEngine()
-        )
+        self.rule_engine = rule_engine or RuleEngine(self.repository.project)
+        self.correlation_engine = correlation_engine or CorrelationEngine()
         self.actor = actor.strip() or "analyst"
 
     def analyze(
@@ -79,11 +79,22 @@ class AnalysisService:
         records: Iterable[NormalizedRecord] | None = None,
         timeline: Iterable[TimelineEvent] | None = None,
         persist: bool = True,
+        on_progress: Callable[[str], None] | None = None,
     ) -> AnalysisResult:
+        report = on_progress or (lambda _message: None)
+        report("Đang kiểm tra Case và tải dữ liệu chuẩn hóa...")
         case = self.repository.require_open(case_id)
         plan = self.repository.load_collection_plan(case.case_id)
         pipeline = ProcessingPipeline(self.repository.project)
         records_loaded_from_case = records is None
+        if (records_loaded_from_case or persist) and self._verify_before_analysis():
+            report("Đang kiểm tra SHA-256 của bằng chứng trước phân tích...")
+            EvidenceService(
+                self.repository.project,
+                actor=self.actor,
+            ).verify_case(case.case_id)
+            if records_loaded_from_case:
+                pipeline.verify_source_binding(case.case_id)
         record_items = (
             pipeline.load_records(case.case_id)
             if records_loaded_from_case
@@ -96,6 +107,11 @@ class AnalysisService:
         )
         input_record_count = len(record_items)
         record_items = self._records_in_scope(record_items, plan)
+        report(
+            f"Đã tải {input_record_count} bản ghi; "
+            f"{len(record_items)} bản ghi trong phạm vi phân tích. "
+            "Đang dựng dòng thời gian..."
+        )
         timeline_items = (
             TimelineBuilder().build(record_items)
             if timeline is None
@@ -107,26 +123,32 @@ class AnalysisService:
             "timeline event",
         )
 
-        findings = self._run_analyzers(record_items)
+        findings = self._run_analyzers(record_items, on_progress=on_progress)
+        report(f"Đã tạo {len(findings)} findings. Đang chạy quy tắc phát hiện...")
         alerts = self.rule_engine.evaluate(
             record_items,
             findings,
             rule_ids=self._profile_rule_ids(plan.options),
         )
+        timeline_items = TimelineBuilder().link_analysis(
+            timeline_items,
+            findings=findings,
+            alerts=alerts,
+        )
+        report(f"Đã tạo {len(alerts)} alerts. Đang tương quan sự kiện...")
         incidents = self.correlation_engine.correlate(
             alerts,
             findings=findings,
             timeline=timeline_items,
             profile=str(
-                plan.options.get("correlation_profile")
-                or plan.profile_id
-                or ""
+                plan.options.get("correlation_profile") or plan.profile_id or ""
             ),
         )
 
         paths = self.repository.paths(case.case_id)
         previous_version = None
         if persist:
+            report("Đang lưu phiên bản kết quả phân tích trước...")
             previous_version = AnalysisHistoryService(
                 self.repository.project,
                 actor=self.actor,
@@ -145,12 +167,11 @@ class AnalysisService:
             alerts_path=paths.alerts_json if persist else None,
             incidents_path=paths.incidents_json if persist else None,
             previous_version_path=(
-                previous_version.path
-                if previous_version is not None
-                else None
+                previous_version.path if previous_version is not None else None
             ),
         )
         if persist:
+            report("Đang lưu findings, alerts và incidents...")
             write_json(
                 paths.findings_json,
                 _envelope(case.case_id, "findings", findings),
@@ -163,7 +184,12 @@ class AnalysisService:
                 paths.incidents_json,
                 _envelope(case.case_id, "incidents", incidents),
             )
+            write_json(
+                paths.timeline_json,
+                timeline_envelope(case.case_id, timeline_items),
+            )
             try:
+                report("Đang cập nhật dữ liệu điều tra...")
                 from analysis.investigation.investigation_service import (
                     InvestigationService,
                 )
@@ -179,8 +205,14 @@ class AnalysisService:
                     incidents=incidents,
                     timeline=timeline_items,
                 )
-            except Exception:
-                pass
+            except (JsonFileError, OSError, TypeError, ValueError) as exc:
+                report(f"Cảnh báo: không cập nhật được dữ liệu điều tra: {exc}")
+                AuditLogger(case.case_id, self.repository.project).log(
+                    "investigation_refresh_failed",
+                    actor=self.actor,
+                    status="failed",
+                    details={"reason": str(exc)},
+                )
             AuditLogger(case.case_id, self.repository.project).log(
                 "analysis_completed",
                 actor=self.actor,
@@ -197,7 +229,27 @@ class AnalysisService:
                     ),
                 },
             )
+        report(
+            f"Phân tích hoàn tất: {result.record_count} bản ghi, "
+            f"{result.finding_count} findings, {result.alert_count} alerts, "
+            f"{result.incident_count} incidents."
+        )
         return result
+
+    def _verify_before_analysis(self) -> bool:
+        try:
+            settings = read_json_object(
+                self.repository.project / "config" / "settings.json"
+            )
+        except JsonFileError as exc:
+            raise AnalysisError(str(exc)) from exc
+        case_settings = settings.get("case", {})
+        if not isinstance(case_settings, dict):
+            raise AnalysisError("settings.case phải là object.")
+        enabled = case_settings.get("verify_hash_before_analysis", True)
+        if not isinstance(enabled, bool):
+            raise AnalysisError("verify_hash_before_analysis phải là boolean.")
+        return enabled
 
     @staticmethod
     def _profile_rule_ids(options: dict[str, Any]) -> tuple[str, ...] | None:
@@ -205,9 +257,7 @@ class AnalysisService:
         if values is None:
             return None
         if not isinstance(values, list):
-            raise AnalysisError(
-                "collection_plan.options.detection_rules phải là list."
-            )
+            raise AnalysisError("collection_plan.options.detection_rules phải là list.")
         return tuple(str(value) for value in values)
 
     @staticmethod
@@ -238,11 +288,7 @@ class AnalysisService:
                 )
             end = max(record.timestamp for record in records)
             start = end - timedelta(hours=hours)
-        return tuple(
-            record
-            for record in records
-            if start <= record.timestamp <= end
-        )
+        return tuple(record for record in records if start <= record.timestamp <= end)
 
     def load_findings(self, case_id: str) -> tuple[Finding, ...]:
         return self._load_models(
@@ -285,20 +331,15 @@ class AnalysisService:
         )
         conclusion_text = conclusion.strip()
         if not conclusion_text:
-            raise AnalysisError(
-                "Chuyên viên phải nhập kết luận khi đổi trạng thái."
-            )
-        if (
-            normalized_status is IncidentStatus.CONFIRMED
-            and not cia_impacts
-        ):
-            raise AnalysisError(
-                "Incident Confirmed phải có ít nhất một tác động CIA."
-            )
+            raise AnalysisError("Chuyên viên phải nhập kết luận khi đổi trạng thái.")
+        if normalized_status is IncidentStatus.CONFIRMED and not cia_impacts:
+            raise AnalysisError("Incident Confirmed phải có ít nhất một tác động CIA.")
         incidents = list(self.load_incidents(case.case_id))
         for incident in incidents:
             if incident.incident_id != incident_id:
                 continue
+            if normalized_status is IncidentStatus.CONFIRMED:
+                ChecklistService(self.repository.project).require_complete(case.case_id)
             incident.set_status(
                 normalized_status,
                 conclusion=conclusion_text,
@@ -315,9 +356,7 @@ class AnalysisService:
                 details={
                     "incident_id": incident.incident_id,
                     "status": incident.status.value,
-                    "cia_impacts": [
-                        impact.value for impact in incident.cia_impacts
-                    ],
+                    "cia_impacts": [impact.value for impact in incident.cia_impacts],
                 },
             )
             return incident
@@ -326,10 +365,17 @@ class AnalysisService:
     def _run_analyzers(
         self,
         records: tuple[NormalizedRecord, ...],
+        *,
+        on_progress: Callable[[str], None] | None = None,
     ) -> tuple[Finding, ...]:
         findings: list[Finding] = []
         seen: set[str] = set()
-        for analyzer in self.analyzers:
+        for index, analyzer in enumerate(self.analyzers, start=1):
+            if on_progress is not None:
+                on_progress(
+                    f"Bộ phân tích {index}/{len(self.analyzers)}: "
+                    f"{analyzer.analyzer_id} ({len(records)} bản ghi)..."
+                )
             for finding in analyzer.analyze(records):
                 if finding.finding_id in seen:
                     continue
@@ -372,9 +418,7 @@ class AnalysisService:
         try:
             return tuple(factory(item) for item in data[key])
         except (KeyError, TypeError, ValueError) as exc:
-            raise AnalysisError(
-                f"{key} chứa model không hợp lệ: {exc}"
-            ) from exc
+            raise AnalysisError(f"{key} chứa model không hợp lệ: {exc}") from exc
 
     @staticmethod
     def _validate_case_items(
@@ -383,9 +427,7 @@ class AnalysisService:
         label: str,
     ) -> None:
         if any(value != case_id for value in values):
-            raise AnalysisError(
-                f"Analysis chứa {label} khác Case."
-            )
+            raise AnalysisError(f"Analysis chứa {label} khác Case.")
 
 
 def _envelope(

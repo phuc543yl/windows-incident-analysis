@@ -23,10 +23,7 @@ def attribute(
     *names: str,
     default: Any = "",
 ) -> Any:
-    values = {
-        normalized_key(key): value
-        for key, value in record.attributes.items()
-    }
+    values = {normalized_key(key): value for key, value in record.attributes.items()}
     for name in names:
         value = values.get(normalized_key(name))
         if value not in (None, ""):
@@ -49,9 +46,13 @@ def text_blob(record: NormalizedRecord) -> str:
             default=str,
         ),
     )
-    return " ".join(str(value) for value in values).casefold().replace(
-        "\\",
-        "/",
+    return (
+        " ".join(str(value) for value in values)
+        .casefold()
+        .replace(
+            "\\",
+            "/",
+        )
     )
 
 
@@ -75,10 +76,7 @@ def source_allowed(
     record: NormalizedRecord,
     allowed: Iterable[str],
 ) -> bool:
-    normalized = {
-        str(value).strip().casefold()
-        for value in allowed
-    }
+    normalized = {str(value).strip().casefold() for value in allowed}
     return (
         conceptual_source(record).casefold() in normalized
         or record.source_type.casefold() in normalized
@@ -86,19 +84,23 @@ def source_allowed(
 
 
 def target_user(record: NormalizedRecord) -> str:
+    if "target_user" in record.attributes:
+        return str(record.attributes["target_user"] or "").strip()
+    names = ("target_user", "target_user_name", "targetusername")
+    if record.event_id not in {4624, 4625}:
+        names = (*names, "subject_user_name")
     return str(
         attribute(
             record,
-            "target_user",
-            "target_user_name",
-            "targetusername",
-            "subject_user_name",
+            *names,
             default=record.user,
         )
     ).strip()
 
 
 def source_ip(record: NormalizedRecord) -> str:
+    if "source_ip" in record.attributes:
+        return str(record.attributes["source_ip"] or "").strip()
     return str(
         attribute(
             record,
@@ -165,35 +167,62 @@ def authorized_maintenance(record: NormalizedRecord) -> bool:
     )
 
 
+def maintenance_authorization(record: NormalizedRecord) -> bool | None:
+    """Keep unknown approval context distinct from an explicit rejection."""
+    if authorized_maintenance(record):
+        return True
+    flags = (attribute(record, "authorized", "approved", "change_approved"),)
+    if any(
+        str(value).strip().casefold()
+        in {"0", "false", "no", "unauthorized", "rejected"}
+        for value in flags
+        if value not in (None, "")
+    ):
+        return False
+    return None
+
+
 def file_hashes(record: NormalizedRecord) -> tuple[str, str]:
-    before = str(
-        attribute(
-            record,
-            "hash_before",
-            "sha256_before",
-            "baseline_sha256",
-            default="",
+    before = (
+        str(
+            attribute(
+                record,
+                "hash_before",
+                "sha256_before",
+                "baseline_sha256",
+                default="",
+            )
         )
-    ).strip().casefold()
-    after = str(
-        attribute(
-            record,
-            "hash_after",
-            "sha256_after",
-            "current_sha256",
-            default="",
+        .strip()
+        .casefold()
+    )
+    after = (
+        str(
+            attribute(
+                record,
+                "hash_after",
+                "sha256_after",
+                "current_sha256",
+                default="",
+            )
         )
-    ).strip().casefold()
+        .strip()
+        .casefold()
+    )
     return before, after
 
 
 def probe_status(record: NormalizedRecord) -> str:
-    return str(
-        attribute(
-            record,
-            "probe_status",
-            "availability_status",
-            "service_probe",
-            default="",
+    return (
+        str(
+            attribute(
+                record,
+                "probe_status",
+                "availability_status",
+                "service_probe",
+                default="",
+            )
         )
-    ).strip().casefold()
+        .strip()
+        .casefold()
+    )

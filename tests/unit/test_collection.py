@@ -8,7 +8,9 @@ import tempfile
 import unittest
 import zipfile
 from collections.abc import Mapping
+from dataclasses import replace
 from pathlib import Path
+from unittest.mock import patch
 
 from case_management.audit_logger import AuditLogger
 from case_management.case_service import CaseService
@@ -39,9 +41,11 @@ from common.exceptions import (
     CaseClosedError,
     CollectionError,
     CollectorNotFoundError,
+    IntegrityVerificationError,
 )
 from common.json_utils import read_json_object
 from evidence.evidence_service import EvidenceService
+from evidence.hash_calculator import HashCalculator
 from models.collection_plan import CollectionPlan
 from models.evidence_item import EvidenceItem, stable_evidence_id
 from models.evidence_manifest import EvidenceManifest
@@ -155,7 +159,9 @@ class FakeAgentClient:
         self.bundle_sha256 = hashlib.sha256(self.bundle_bytes).hexdigest()
         return "TASK/001"
 
-    def wait_for_task(self, task_id: str) -> dict:
+    def wait_for_task(self, task_id: str, *, on_progress=None) -> dict:
+        if on_progress is not None:
+            on_progress("Agent: Collector 1/2: system...")
         return {
             "task_id": task_id,
             "status": "completed",
@@ -233,6 +239,30 @@ class StubFailedCollector(BaseCollector):
         raise RuntimeError("collector failed")
 
 
+class ChangingLiveCollector(StubLiveCollector):
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def collect(self, client, destination, options):
+        self.calls += 1
+        return CollectorOutput(
+            data=[{"hostname": "WIN-LAB01", "generation": self.calls}]
+        )
+
+
+class FreshArtifactCollector(StubArtifactCollector):
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def collect(self, client, destination, options):
+        self.calls += 1
+        artifact = destination / "Security.evtx"
+        if artifact.exists():
+            raise RuntimeError("Artifact đã tồn tại")
+        artifact.write_bytes(f"evtx generation {self.calls}".encode())
+        return CollectorOutput(files=(artifact,))
+
+
 class CollectorRegistryTests(unittest.TestCase):
     def test_default_registry_contains_every_supported_collector(self) -> None:
         registry = build_default_registry()
@@ -284,9 +314,7 @@ class LiveCollectorTests(unittest.TestCase):
                 )
                 self.assertEqual(output.data, value)
                 self.assertIn("ConvertTo-Json", client.scripts[0])
-                self.assertTrue(
-                    collector.output_filename.endswith(".json")
-                )
+                self.assertTrue(collector.output_filename.endswith(".json"))
 
     def test_live_collector_rejects_wrong_response_shape(self) -> None:
         collector = build_default_registry().get("processes")
@@ -471,35 +499,32 @@ class CollectionServiceTests(unittest.TestCase):
         self,
     ) -> None:
         case, _ = self.prepare_local_case()
-        registry = CollectorRegistry(
-            (StubLiveCollector(), StubArtifactCollector())
-        )
+        registry = CollectorRegistry((StubLiveCollector(), StubArtifactCollector()))
         service = CollectionService(
             self.temp_path,
             registry=registry,
             local_client=FakeLocalClient(),
         )
 
-        results = service.collect_case(case.case_id)
+        messages = []
+        results = service.collect_case(case.case_id, on_progress=messages.append)
         paths = service.repository.paths(case.case_id)
 
         self.assertEqual(len(results), 2)
         self.assertTrue(all(result.succeeded for result in results))
         self.assertEqual(results[0].record_count, 2)
         self.assertEqual(
-            json.loads(paths.live.joinpath("system.json").read_text())[
-                0
-            ]["hostname"],
+            json.loads(paths.live.joinpath("system.json").read_text())[0]["hostname"],
             "WIN-LAB01",
         )
         self.assertTrue(
-            paths.raw_artifact_dir("event_logs")
-            .joinpath("Security.evtx")
-            .is_file()
+            paths.raw_artifact_dir("event_logs").joinpath("Security.evtx").is_file()
+        )
+        self.assertTrue(
+            EvidenceService(self.temp_path).verify_case(case.case_id)["success"]
         )
         collection_records = [
-            json.loads(line)
-            for line in paths.collection_log.read_text().splitlines()
+            json.loads(line) for line in paths.collection_log.read_text().splitlines()
         ]
         self.assertEqual(len(collection_records), 2)
         audit_actions = [
@@ -511,6 +536,300 @@ class CollectionServiceTests(unittest.TestCase):
         ]
         self.assertIn("collection_started", audit_actions)
         self.assertIn("collection_completed", audit_actions)
+        self.assertIn("Collector 1/2: system...", messages)
+        self.assertIn("Collector 2/2: event_logs...", messages)
+        self.assertTrue(any("system: thành công, 2 bản ghi" in msg for msg in messages))
+        self.assertIn("Thu thập hoàn tất", messages[-1])
+
+    def test_recollection_preserves_old_bundle_and_verifies_new_live_and_evtx(
+        self,
+    ) -> None:
+        case, _ = self.prepare_local_case()
+        live = ChangingLiveCollector()
+        raw = FreshArtifactCollector()
+        service = CollectionService(
+            self.temp_path,
+            registry=CollectorRegistry((live, raw)),
+            local_client=FakeLocalClient(),
+        )
+        service.collect_case(case.case_id)
+        paths = service.repository.paths(case.case_id)
+        old_live = (paths.live / "system.json").read_bytes()
+        old_raw = (paths.raw_artifact_dir("event_logs") / "Security.evtx").read_bytes()
+        old_manifest = paths.manifest_json.read_bytes()
+
+        messages = []
+        results = service.collect_case(case.case_id, on_progress=messages.append)
+
+        self.assertTrue(all(result.succeeded for result in results))
+        self.assertEqual(read_json_object(paths.manifest_json)["item_count"], 2)
+        self.assertEqual(
+            json.loads((paths.live / "system.json").read_text())[0]["generation"], 2
+        )
+        self.assertEqual(
+            (paths.raw_artifact_dir("event_logs") / "Security.evtx").read_bytes(),
+            b"evtx generation 2",
+        )
+        self.assertTrue(
+            EvidenceService(self.temp_path).verify_case(case.case_id)["success"]
+        )
+        bundles = list(paths.bundles.glob("before_collection_*.zip"))
+        self.assertEqual(len(bundles), 1)
+        with zipfile.ZipFile(bundles[0]) as archive:
+            self.assertEqual(archive.read("acquisition/live/system.json"), old_live)
+            self.assertEqual(
+                archive.read("acquisition/raw/EventLogs/Security.evtx"), old_raw
+            )
+            self.assertEqual(archive.read("acquisition/manifest.json"), old_manifest)
+        inspection = EvidenceService(self.temp_path).inspect_bundle(bundles[0])
+        self.assertTrue(inspection["valid_zip"])
+        self.assertTrue(any("lưu Evidence Bundle" in message for message in messages))
+        self.assertTrue(any("đăng ký SHA-256" in message for message in messages))
+        self.assertFalse(list(paths.bundles.glob("local-collection-*")))
+
+    def test_recollection_refuses_existing_mismatch_without_overwrite_or_rebaseline(
+        self,
+    ) -> None:
+        case, _ = self.prepare_local_case(artifact_collectors=())
+        live = ChangingLiveCollector()
+        service = CollectionService(
+            self.temp_path,
+            registry=CollectorRegistry((live,)),
+            local_client=FakeLocalClient(),
+        )
+        service.collect_case(case.case_id)
+        paths = service.repository.paths(case.case_id)
+        manifest = paths.manifest_json.read_bytes()
+        changed = b'[{"hostname":"modified"}]'
+        (paths.live / "system.json").write_bytes(changed)
+
+        with self.assertRaises(IntegrityVerificationError):
+            service.collect_case(case.case_id)
+
+        self.assertEqual(live.calls, 1)
+        self.assertEqual((paths.live / "system.json").read_bytes(), changed)
+        self.assertEqual(paths.manifest_json.read_bytes(), manifest)
+        self.assertFalse(list(paths.bundles.glob("before_collection_*.zip")))
+
+    def test_snapshot_with_changed_archived_bytes_stops_before_collection(self) -> None:
+        case, _ = self.prepare_local_case(artifact_collectors=())
+        live = ChangingLiveCollector()
+        service = CollectionService(
+            self.temp_path,
+            registry=CollectorRegistry((live,)),
+            local_client=FakeLocalClient(),
+        )
+        service.collect_case(case.case_id)
+        paths = service.repository.paths(case.case_id)
+        before = (paths.live / "system.json").read_bytes()
+        build = EvidenceService.build_bundle
+
+        def changed_snapshot(instance, *args, **kwargs):
+            result = build(instance, *args, **kwargs)
+            with zipfile.ZipFile(result.bundle_path) as archive:
+                contents = {name: archive.read(name) for name in archive.namelist()}
+            contents["acquisition/live/system.json"] = b"changed snapshot bytes"
+            with zipfile.ZipFile(
+                result.bundle_path, "w", zipfile.ZIP_DEFLATED
+            ) as archive:
+                for name, data in contents.items():
+                    archive.writestr(name, data)
+            return replace(
+                result, sha256=HashCalculator().calculate(result.bundle_path).sha256
+            )
+
+        with patch(
+            "collection.evidence_update.EvidenceService.build_bundle", changed_snapshot
+        ):
+            with self.assertRaisesRegex(IntegrityVerificationError, "trong snapshot"):
+                service.collect_case(case.case_id)
+        self.assertEqual(live.calls, 1)
+        self.assertEqual((paths.live / "system.json").read_bytes(), before)
+
+    def test_agent_collection_does_not_rebaseline_changed_existing_evidence(
+        self,
+    ) -> None:
+        case, _ = self.prepare_local_case(artifact_collectors=())
+        local = CollectionService(
+            self.temp_path,
+            registry=CollectorRegistry((ChangingLiveCollector(),)),
+            local_client=FakeLocalClient(),
+        )
+        local.collect_case(case.case_id)
+        paths = local.repository.paths(case.case_id)
+        manifest = paths.manifest_json.read_bytes()
+        (paths.live / "system.json").write_bytes(b"modified local evidence")
+        remote = CollectionService(self.temp_path, agent_client=FakeAgentClient())
+
+        with self.assertRaisesRegex(CollectionError, "toàn vẹn thất bại"):
+            remote.collect_case(case.case_id, mode="agent", agent_id="AGENT-001")
+        self.assertEqual(paths.manifest_json.read_bytes(), manifest)
+        self.assertEqual(
+            (paths.live / "system.json").read_bytes(), b"modified local evidence"
+        )
+
+    def test_collection_archives_unregistered_existing_files_before_replacement(
+        self,
+    ) -> None:
+        case, _ = self.prepare_local_case(artifact_collectors=())
+        paths = self.case_service.repository.paths(case.case_id)
+        old = b'[{"hostname":"old acquisition"}]'
+        (paths.live / "system.json").write_bytes(old)
+        service = CollectionService(
+            self.temp_path,
+            registry=CollectorRegistry((ChangingLiveCollector(),)),
+            local_client=FakeLocalClient(),
+        )
+
+        service.collect_case(case.case_id)
+
+        bundles = list(paths.bundles.glob("before_collection_*.zip"))
+        self.assertEqual(len(bundles), 1)
+        with zipfile.ZipFile(bundles[0]) as archive:
+            self.assertEqual(archive.read("acquisition/live/system.json"), old)
+        self.assertTrue(
+            EvidenceService(self.temp_path).verify_case(case.case_id)["success"]
+        )
+
+    def test_recollection_registers_successful_outputs_when_later_collector_stops(
+        self,
+    ) -> None:
+        case, plan = self.prepare_local_case(artifact_collectors=())
+        live = ChangingLiveCollector()
+        service = CollectionService(
+            self.temp_path,
+            registry=CollectorRegistry((live, StubFailedCollector())),
+            local_client=FakeLocalClient(),
+            continue_on_error=False,
+        )
+        service.collect_case(case.case_id)
+        plan.live_collectors = ("system", "processes")
+        self.case_service.repository.save_collection_plan(case.case_id, plan)
+
+        with self.assertRaisesRegex(CollectionError, "processes thất bại"):
+            service.collect_case(case.case_id)
+
+        paths = service.repository.paths(case.case_id)
+        self.assertEqual(
+            json.loads((paths.live / "system.json").read_text())[0]["generation"], 2
+        )
+        self.assertTrue(
+            EvidenceService(self.temp_path).verify_case(case.case_id)["success"]
+        )
+        self.assertEqual(len(list(paths.bundles.glob("before_collection_*.zip"))), 1)
+        self.assertFalse(list(paths.bundles.glob("local-collection-*")))
+
+    def test_failed_artifact_export_leaves_previous_raw_file_unchanged(self) -> None:
+        case, _ = self.prepare_local_case(live_collectors=())
+        service = CollectionService(
+            self.temp_path,
+            registry=CollectorRegistry((FreshArtifactCollector(),)),
+            local_client=FakeLocalClient(),
+        )
+        service.collect_case(case.case_id)
+        paths = service.repository.paths(case.case_id)
+        manifest = paths.manifest_json.read_bytes()
+
+        class IncompleteExport(StubArtifactCollector):
+            def collect(self, client, destination, options):
+                (destination / "Security.evtx").write_bytes(b"incomplete")
+                raise RuntimeError("export interrupted")
+
+        service.registry = CollectorRegistry((IncompleteExport(),))
+        results = service.collect_case(case.case_id)
+
+        self.assertEqual(results[0].status, CollectionStatus.FAILED)
+        self.assertEqual(
+            (paths.raw_artifact_dir("event_logs") / "Security.evtx").read_bytes(),
+            b"evtx generation 1",
+        )
+        self.assertEqual(paths.manifest_json.read_bytes(), manifest)
+        self.assertTrue(
+            EvidenceService(self.temp_path).verify_case(case.case_id)["success"]
+        )
+
+    def test_unrelated_evidence_change_during_collection_is_not_rebaselined(
+        self,
+    ) -> None:
+        case, plan = self.prepare_local_case()
+        service = CollectionService(
+            self.temp_path,
+            registry=CollectorRegistry(
+                (ChangingLiveCollector(), FreshArtifactCollector())
+            ),
+            local_client=FakeLocalClient(),
+        )
+        service.collect_case(case.case_id)
+        paths = service.repository.paths(case.case_id)
+        original_manifest = paths.manifest_json.read_bytes()
+
+        class ConcurrentChange(ChangingLiveCollector):
+            def collect(self, client, destination, options):
+                (paths.raw_artifact_dir("event_logs") / "Security.evtx").write_bytes(
+                    b"changed elsewhere"
+                )
+                return super().collect(client, destination, options)
+
+        plan.artifact_collectors = ()
+        self.case_service.repository.save_collection_plan(case.case_id, plan)
+        service.registry = CollectorRegistry((ConcurrentChange(),))
+        with self.assertRaisesRegex(IntegrityVerificationError, "ngoài output"):
+            service.collect_case(case.case_id)
+
+        self.assertEqual(paths.manifest_json.read_bytes(), original_manifest)
+        self.assertFalse(list(paths.bundles.glob("local-collection-*")))
+        snapshot = next(paths.bundles.glob("before_collection_*.zip"))
+        self.assertTrue(
+            EvidenceService(self.temp_path).inspect_bundle(snapshot)["valid_zip"]
+        )
+
+    def test_installed_output_changed_again_is_not_rebaselined(self) -> None:
+        case, plan = self.prepare_local_case(artifact_collectors=())
+        service = CollectionService(
+            self.temp_path,
+            registry=CollectorRegistry((ChangingLiveCollector(),)),
+            local_client=FakeLocalClient(),
+        )
+        service.collect_case(case.case_id)
+        paths = service.repository.paths(case.case_id)
+        original_manifest = paths.manifest_json.read_bytes()
+
+        class ChangeInstalledOutput(StubFailedCollector):
+            def collect(self, client, destination, options):
+                (paths.live / "system.json").write_bytes(b"changed after installation")
+                return CollectorOutput(data=[])
+
+        plan.live_collectors = ("system", "processes")
+        self.case_service.repository.save_collection_plan(case.case_id, plan)
+        service.registry = CollectorRegistry(
+            (ChangingLiveCollector(), ChangeInstalledOutput())
+        )
+        with self.assertRaisesRegex(
+            IntegrityVerificationError, "Output thu thập đã đổi"
+        ):
+            service.collect_case(case.case_id)
+        self.assertEqual(paths.manifest_json.read_bytes(), original_manifest)
+
+    def test_metadata_change_during_collection_is_not_rebaselined(self) -> None:
+        case, _ = self.prepare_local_case(artifact_collectors=())
+        service = CollectionService(
+            self.temp_path,
+            registry=CollectorRegistry((ChangingLiveCollector(),)),
+            local_client=FakeLocalClient(),
+        )
+        service.collect_case(case.case_id)
+        paths = service.repository.paths(case.case_id)
+        original_manifest = paths.manifest_json.read_bytes()
+
+        class ChangeMetadata(ChangingLiveCollector):
+            def collect(self, client, destination, options):
+                paths.hashes_sha256.write_text("changed metadata", encoding="utf-8")
+                return super().collect(client, destination, options)
+
+        service.registry = CollectorRegistry((ChangeMetadata(),))
+        with self.assertRaisesRegex(IntegrityVerificationError, "Metadata bằng chứng"):
+            service.collect_case(case.case_id)
+        self.assertEqual(paths.manifest_json.read_bytes(), original_manifest)
 
     def test_local_collection_can_continue_after_collector_error(
         self,
@@ -521,20 +840,40 @@ class CollectionServiceTests(unittest.TestCase):
         )
         service = CollectionService(
             self.temp_path,
-            registry=CollectorRegistry(
-                (StubLiveCollector(), StubFailedCollector())
-            ),
+            registry=CollectorRegistry((StubLiveCollector(), StubFailedCollector())),
             local_client=FakeLocalClient(),
             continue_on_error=True,
         )
 
-        results = service.collect_case(case.case_id)
+        messages = []
+        results = service.collect_case(case.case_id, on_progress=messages.append)
 
         self.assertEqual(
             [result.status for result in results],
             [CollectionStatus.SUCCEEDED, CollectionStatus.FAILED],
         )
         self.assertIn("collector failed", results[1].errors[0])
+        self.assertTrue(any("processes: thất bại" in msg for msg in messages))
+        self.assertTrue(any("Lỗi: collector failed" in msg for msg in messages))
+        self.assertIn("1 thất bại", messages[-1])
+
+    def test_progress_keeps_partial_collector_warnings(self) -> None:
+        case, _ = self.prepare_local_case(artifact_collectors=())
+
+        class WarningCollector(StubLiveCollector):
+            def collect(self, client, destination, options):
+                return CollectorOutput(data=[], warnings=("Thiếu quyền đọc một mục",))
+
+        messages = []
+        result = CollectionService(
+            self.temp_path,
+            registry=CollectorRegistry((WarningCollector(),)),
+            local_client=FakeLocalClient(),
+        ).collect_case(case.case_id, on_progress=messages.append)
+
+        self.assertEqual(result[0].status, CollectionStatus.PARTIAL)
+        self.assertTrue(any("hoàn tất có cảnh báo" in msg for msg in messages))
+        self.assertTrue(any("Thiếu quyền đọc một mục" in msg for msg in messages))
 
     def test_local_collection_can_stop_on_first_error(self) -> None:
         case, _ = self.prepare_local_case(
@@ -548,8 +887,11 @@ class CollectionServiceTests(unittest.TestCase):
             continue_on_error=False,
         )
 
+        messages = []
         with self.assertRaisesRegex(CollectionError, "processes thất bại"):
-            service.collect_case(case.case_id)
+            service.collect_case(case.case_id, on_progress=messages.append)
+        self.assertTrue(any("processes: thất bại" in msg for msg in messages))
+        self.assertFalse(any("Thu thập hoàn tất" in msg for msg in messages))
 
     def test_missing_registered_collector_becomes_failed_result(
         self,
@@ -575,9 +917,7 @@ class CollectionServiceTests(unittest.TestCase):
         case, _ = self.prepare_local_case()
         service = CollectionService(
             self.temp_path,
-            registry=CollectorRegistry(
-                (StubLiveCollector(), StubArtifactCollector())
-            ),
+            registry=CollectorRegistry((StubLiveCollector(), StubArtifactCollector())),
             local_client=FakeLocalClient(),
         )
 
@@ -602,7 +942,8 @@ class CollectionServiceTests(unittest.TestCase):
             agent_client=agent,
         )
 
-        results = service.collect_case(case.case_id)
+        messages = []
+        results = service.collect_case(case.case_id, on_progress=messages.append)
 
         self.assertEqual(len(results), 2)
         self.assertTrue(all(result.succeeded for result in results))
@@ -625,33 +966,28 @@ class CollectionServiceTests(unittest.TestCase):
         self.assertEqual(manifest["case_id"], case.case_id)
         self.assertEqual(manifest["item_count"], 2)
         self.assertTrue(
-            all(
-                item["case_id"] == case.case_id
-                for item in manifest["evidence_items"]
-            )
+            all(item["case_id"] == case.case_id for item in manifest["evidence_items"])
         )
-        self.assertTrue(
-            all(result.metadata["bundle_imported"] for result in results)
-        )
+        self.assertTrue(all(result.metadata["bundle_imported"] for result in results))
         self.assertEqual(
             {result.metadata["imported_evidence_count"] for result in results},
             {2},
         )
         self.assertEqual(
-            EvidenceService(self.temp_path).verify_case(case.case_id)[
-                "matched_count"
-            ],
+            EvidenceService(self.temp_path).verify_case(case.case_id)["matched_count"],
             2,
         )
+        self.assertIn("Agent: Collector 1/2: system...", messages)
+        self.assertTrue(any("tải Evidence Bundle" in msg for msg in messages))
+        self.assertTrue(any("nhập bằng chứng" in msg for msg in messages))
+        self.assertIn("Thu thập hoàn tất", messages[-1])
 
     def test_collection_rejects_closed_case(self) -> None:
         case, _ = self.prepare_local_case()
         self.case_service.close_case(case.case_id)
         service = CollectionService(
             self.temp_path,
-            registry=CollectorRegistry(
-                (StubLiveCollector(), StubArtifactCollector())
-            ),
+            registry=CollectorRegistry((StubLiveCollector(), StubArtifactCollector())),
             local_client=FakeLocalClient(),
         )
 

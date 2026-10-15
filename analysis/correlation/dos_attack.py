@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from models.alert import Alert
 from analysis.correlation.base import CorrelationMatch
+from analysis.correlation.entities import same_service
+from models.alert import Alert
 
 
 class DosAttackCorrelation:
@@ -13,11 +14,7 @@ class DosAttackCorrelation:
         self,
         alerts: tuple[Alert, ...],
     ) -> tuple[CorrelationMatch, ...]:
-        probes = [
-            alert
-            for alert in alerts
-            if alert.rule_id == "service_probe_failed"
-        ]
+        probes = [alert for alert in alerts if alert.rule_id == "service_probe_failed"]
         matches: list[CorrelationMatch] = []
         for alert in alerts:
             if alert.rule_id != "connection_flood":
@@ -25,10 +22,9 @@ class DosAttackCorrelation:
             related = tuple(
                 probe
                 for probe in probes
-                if abs(
-                    (probe.created_at - alert.created_at).total_seconds()
-                )
+                if abs((probe.created_at - alert.created_at).total_seconds())
                 <= timedelta(minutes=15).total_seconds()
+                and same_service(alert, probe)
             )
             matches.append(
                 CorrelationMatch(
@@ -49,15 +45,9 @@ class DosAttackCorrelation:
                     details={
                         "source_ip": alert.details.get("source_ip", ""),
                         "hostname": alert.details.get("hostname", ""),
-                        "destination_ip": alert.details.get(
-                            "destination_ip", ""
-                        ),
-                        "destination_port": alert.details.get(
-                            "destination_port"
-                        ),
-                        "connection_count": alert.details.get(
-                            "connection_count", 0
-                        ),
+                        "destination_ip": alert.details.get("destination_ip", ""),
+                        "destination_port": alert.details.get("destination_port"),
+                        "connection_count": alert.details.get("connection_count", 0),
                         "probe_supported": bool(related),
                         "availability_impact_requires_confirmation": True,
                     },
